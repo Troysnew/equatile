@@ -155,6 +155,8 @@ h1 .eq{color:var(--pencil)}
 .row-end{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
 /* circling + workbench */
 .cell.filled{touch-action:none}
+.cell.gapsel{box-shadow:inset 0 0 0 3px var(--ok);background:var(--ok-soft)}
+.wt.gap{background:transparent;border:2px dashed var(--ok);color:var(--ok);font:700 .7rem var(--f-body);cursor:default}
 .tile.circ{box-shadow:inset 0 -.14em 0 var(--tile-edge),0 0 0 3px var(--ok);background:var(--ok-soft);color:var(--ink)}
 .sheet-back{position:fixed;inset:0;z-index:30;background:rgba(10,16,12,.5);display:flex;align-items:flex-end;justify-content:center}
 .sheet{width:100%;max-width:760px;max-height:90vh;max-height:90dvh;overflow-y:auto;overscroll-behavior:contain;background-color:var(--pad);background-image:linear-gradient(var(--padline) 1px,transparent 1px),linear-gradient(90deg,var(--padline) 1px,transparent 1px);background-size:22px 22px;border-radius:18px 18px 0 0;border:1px solid var(--line);border-bottom:0;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));display:flex;flex-direction:column;gap:14px;box-shadow:0 -10px 40px rgba(0,0,0,.25)}
@@ -249,7 +251,7 @@ h1 .eq{color:var(--pencil)}
           <li>Show a move costs part of the points of the move it shows, whether or not you play it: 50% against Easy, 75% against Medium, 100% against Hard or a person. From your 4th hint on, every hint costs 100%. You get one hint per turn: pressing it again shows the same move at no extra charge. If no move is found, it's free.</li>
           <li>The second player starts with 8 tiles instead of 7 to make up for going second. After their first play, racks refill to 7 as usual.</li>
           <li>Online: choose New game, then Online. Start a game to get a 6-character code, or join with a friend's code. Each player sees only their own tiles, and the server checks every move. Hints are off in online games.</li>
-          <li>Tap a tile on the board, or drag across a line of tiles, to pick a base. Then open the Workbench to try math with the base and your tiles before you commit. The Workbench works without a base too, as scratch math. It's free.</li>
+          <li>Tap a tile on the board, or drag across a line, to pick a base. A base can skip empty squares: tap the 6, then the 4 two squares away, and the Workbench knows one of your tiles has to fill the gap. Then open the Workbench to try math with the base and your tiles before you commit. The Workbench works without a base too, as scratch math. It's free.</li>
           <li>The game ends when the bag is empty and someone plays out, or after 6 scoreless turns. Leftover tile points count against you.</li>
         </ul>
         <h3>Puzzles</h3>
@@ -277,7 +279,7 @@ h1 .eq{color:var(--pencil)}
     </header>
     <div class="calc" id="wbScreen" aria-label="Calculator screen, tap an item to remove it"></div>
     <div class="pools">
-      <div class="pool"><span class="lbl">Base tiles from the board</span><div class="ptiles" id="wbBase"></div></div>
+      <div class="pool"><span class="lbl">Base from the board (gaps are empty squares)</span><div class="ptiles" id="wbBase"></div></div>
       <div class="pool"><span class="lbl">Your tiles</span><div class="ptiles" id="wbMine"></div></div>
     </div>
     <div class="keys" id="wbKeys">
@@ -792,6 +794,7 @@ function render() {
       if (pr) label += `, ${PNAME[pr]}`; label += ', empty';
     }
     if (d != null && !pz) cls += ' filled';
+    if (d == null && !pend.has(k) && circ.has(k)) cls += ' gapsel';
     c.className = cls;
     c.setAttribute('aria-label', label);
   }
@@ -813,7 +816,7 @@ function render() {
     : S.over ? 'Game over.'
     : pz && S.puzzle.solved ? `Solved in ${fmtTime(S.puzzle.elapsed)}.`
     : ui.msg ? ui.msg
-    : ui.circSel.length && !pz ? `Base ${ui.circSel.map(k => S.board[k]).join('')} selected. Open the Workbench, tap another tile in line to extend it, or tap it again to clear.`
+    : ui.circSel.length && !pz ? `Base ${baseLabel(ui.circSel)} selected${(g => g ? `, with ${g === 1 ? 'an empty square' : g + ' empty squares'} to fill` : '')(ui.circSel.filter(k => S.board[k] == null).length)}. Open the Workbench, tap another tile in line to extend it, or tap it again to clear.`
     : isOn() && S.online.status === 'waiting' ? `Waiting for someone to join. Share code ${S.online.code}. You can plan your first move meanwhile.`
     : isOn() && S.turn !== S.online.seat && ui.pending.length ? `Planning ahead. You can play this once ${esc(cur().name)} finishes their turn.`
     : isOn() && S.turn !== S.online.seat ? `${esc(cur().name)} is taking their turn. You can plan your next move meanwhile.`
@@ -838,7 +841,7 @@ function render() {
   $('bHint').disabled = !h || ui.swap || cm;
   $('bWb').hidden = pz;
   $('bWb').disabled = !plan || ui.swap;
-  $('bWb').textContent = ui.circSel.length ? `Workbench · ${ui.circSel.map(k => S.board[k]).join('')}` : 'Workbench';
+  $('bWb').textContent = ui.circSel.length ? `Workbench · ${baseLabel(ui.circSel)}` : 'Workbench';
   $('bNew').disabled = ui.thinking;
   $('logPanel').hidden = pz;
   renderPreview(); if (!pz) renderLog(); renderModal(); renderWB();
@@ -1078,22 +1081,27 @@ $('bNew').addEventListener('click', () => { if (ui.thinking) return; S.modal = '
 /* ---------- circle a line ---------- */
 const rc = k => [Math.floor(k / N), k % N];
 let drag = null;
+// A base runs in a straight line from one tile to another. Empty squares in between are gaps to fill.
 function rangeTo(a, b) {
   const [ra, ca] = rc(a), [rb, cb] = rc(b);
   const horiz = Math.abs(cb - ca) >= Math.abs(rb - ra);
+  const end = horiz ? ra * N + cb : rb * N + ca; // project the pointer onto the row or column
+  if (S.board[end] == null) return null;
   const len = horiz ? Math.abs(cb - ca) : Math.abs(rb - ra);
   const step = horiz ? Math.sign(cb - ca) : Math.sign(rb - ra) * N;
-  const out = [a];
-  for (let i = 1; i <= len; i++) { const k = a + step * i; if (S.board[k] == null) break; out.push(k); }
+  const out = [];
+  for (let i = 0; i <= len; i++) out.push(a + step * i);
   return out.sort((x, y) => x - y);
 }
+const baseCells = sel => sel.filter(k => S.board[k] != null);
+const baseLabel = sel => sel.map(k => S.board[k] ?? '_').join('');
 function tapSelect(k) {
   if (S.board[k] == null) return;
   const s = ui.circSel;
   if (s.length === 1 && s[0] === k) { ui.circSel = []; return render(); }
   if (s.length === 1 && s[0] !== k) {
     const [r1, c1] = rc(s[0]), [r2, c2] = rc(k);
-    if (r1 === r2 || c1 === c2) { const r = rangeTo(s[0], k); if (r.includes(k)) { ui.circSel = r; return render(); } }
+    if (r1 === r2 || c1 === c2) { const r = rangeTo(s[0], k); if (r) { ui.circSel = r; return render(); } }
   }
   ui.circSel = [k]; ui.msg = ''; ui.err = false; render();
 }
@@ -1111,7 +1119,8 @@ boardEl.addEventListener('pointermove', e => {
   const k = cellAt(e.clientX, e.clientY);
   if (k == null || (k === drag.anchor && !drag.moved)) return;
   drag.moved = true;
-  const sel = rangeTo(drag.anchor, k), key = sel.join(',');
+  const sel = rangeTo(drag.anchor, k); if (!sel) return;
+  const key = sel.join(',');
   if (key !== drag.key) { drag.key = key; ui.circSel = sel; render(); }
 });
 boardEl.addEventListener('pointerup', () => { if (!drag) return; const d = drag; drag = null; if (!d.moved) tapSelect(d.anchor); });
@@ -1124,10 +1133,11 @@ const fmtN = v => v < 0 ? '−' + Math.abs(v) : String(v);
 function wbOpen() {
   if (!canPlan()) return;
   ui.pending = []; ui.sel = null; ui.bad = null; ui.msg = '';
-  const base = ui.circSel.slice();
+  const cells = ui.circSel.slice(), base = baseCells(cells);
+  const gaps = base.slice(1).map((k, i) => cells.filter(c => c > base[i] && c < k && S.board[c] == null).length);
   let dirs;
   if (!base.length) dirs = ['h'];
-  else if (base.length > 1) dirs = [base[1] - base[0] === 1 ? 'h' : 'v'];
+  else if (cells.length > 1) dirs = [cells[1] - cells[0] === 1 ? 'h' : 'v'];
   else {
     const [r, c] = rc(base[0]);
     const inH = get(S.board, null, r, c - 1) != null || get(S.board, null, r, c + 1) != null;
@@ -1135,7 +1145,7 @@ function wbOpen() {
     const d = inH && !inV ? 'v' : 'h';
     dirs = [d, d === 'h' ? 'v' : 'h'];
   }
-  ui.wb = { base, dirs, items: [] };
+  ui.wb = { cells, base, gaps, gapCells: cells.filter(c => S.board[c] == null), dirs, items: [], board: S.board.join(',') };
   render();
   setTimeout(() => { const b = $('wbSheet').querySelector('.ptiles button'); if (b) b.focus(); }, 0);
 }
@@ -1159,13 +1169,8 @@ function fits(dir, before, after) {
   }
   const br = fr - dr * (before + 1), bc = fc - dc * (before + 1), ar = lr + dr * (after + 1), ac = lc + dc * (after + 1);
   const longer = 'The base tiles are part of a longer line on the board. Select the whole line.';
-  if (get(S.board, null, br, bc) != null) return { ok: false, msg: before ? `Your tiles would touch the tile at ${where(br, bc)}.` : longer };
-  if (get(S.board, null, ar, ac) != null) return { ok: false, msg: after ? `Your tiles would touch the tile at ${where(ar, ac)}.` : longer };
-  for (const k of [...cellsB, ...cellsA]) {
-    const [r, c] = rc(k);
-    const side = dir === 'h' ? [[r - 1, c], [r + 1, c]] : [[r, c - 1], [r, c + 1]];
-    for (const [x, y] of side) if (get(S.board, null, x, y) != null) return { ok: false, msg: `Your tile at ${where(r, c)} would touch the tile at ${where(x, y)}.` };
-  }
+  if (get(S.board, null, br, bc) != null) return { ok: false, msg: before ? `Your tiles would run into the tile at ${where(br, bc)}, making the line longer than your equation.` : longer };
+  if (get(S.board, null, ar, ac) != null) return { ok: false, msg: after ? `Your tiles would run into the tile at ${where(ar, ac)}, making the line longer than your equation.` : longer };
   return { ok: true, cellsB, cellsA };
 }
 function calc(X, op, Y) {
@@ -1232,29 +1237,42 @@ function stringCheck() {
   const cPos = digs.map((x, j) => x.t === 'c' ? j : -1).filter(j => j >= 0);
   const cOrd = cPos.map(j => digs[j].i);
   for (let j = 1; j < cOrd.length; j++) if (cOrd[j] < cOrd[j - 1]) { say('bad', 'Not valid: the base tiles are out of order.'); return s; }
-  if (cPos.length) {
-    const mid = digs.slice(cPos[0], cPos[cPos.length - 1] + 1).find(x => x.t === 'r');
-    if (mid) { say('bad', `Not valid: your ${mid.d} sits between base tiles. Your tiles can only go before or after the base line.`); return s; }
-  }
   if (!m) return noBaseCheck(s, digs, say);
   if (cPos.length < m) { say('bad', `Uses ${cPos.length} of ${m} base tiles. They all stay on the board, so the string needs every one.`); return s; }
-  say('ok', m > 1 ? `All ${m} base tiles used, in order.` : 'The base tile is used.');
+  for (let q = 0; q < m - 1; q++) {
+    const have = cPos[q + 1] - cPos[q] - 1, need = wb.gaps[q];
+    if (have !== need) {
+      const a = S.board[wb.base[q]], b = S.board[wb.base[q + 1]];
+      const sq = n => `${n} empty square${n === 1 ? '' : 's'}`;
+      say('bad', need === 0
+        ? `Not valid: the ${a} and the ${b} sit right next to each other on the board, so none of your tiles can go between them.`
+        : `Not valid: there ${need === 1 ? 'is' : 'are'} ${sq(need)} between the ${a} and the ${b}, so exactly ${need} of your tiles must go there. You have ${have}.`);
+      return s;
+    }
+  }
+  const nGaps = wb.gaps.reduce((a, b) => a + b, 0);
+  say('ok', (m > 1 ? `All ${m} base tiles used, in order` : 'The base tile is used') + (nGaps ? `, with the ${nGaps === 1 ? 'empty square' : nGaps + ' empty squares'} filled.` : '.'));
   const eqs = findEqs(s.digits);
   if (!eqs.length) { say('bad', `${s.digits} has no valid reading yet.`); return s; }
   s.readings = eqs;
   const before = cPos[0], after = digs.length - 1 - cPos[cPos.length - 1];
-  if (!before && !after) { say('info', 'Add at least one of your tiles before or after the base tiles.'); return s; }
-  let fit = null, fail = null;
-  for (const d of wb.dirs) { const f = fits(d, before, after); if (f.ok) { fit = { ...f, dir: d }; break; } if (!fail) fail = f; }
-  if (!fit) { say('bad', fail.msg); return s; }
-  const dn = d => d === 'h' ? 'across' : 'down';
-  if (wb.dirs.length > 1 && fit.dir !== wb.dirs[0]) say('info', `It didn’t fit going ${dn(wb.dirs[0])}, so it goes ${dn(fit.dir)}.`);
   const mine = digs.filter(x => x.t === 'r');
-  const pl = [...fit.cellsB, ...fit.cellsA].map((k, j) => ({ k, d: mine[j].d, ri: mine[j].i }));
-  const res = evaluate(S.board, pl);
-  if (!res.ok) { say('bad', res.msg || 'The board won’t accept this play.'); return s; }
-  say('ok', `Fits on the board going ${dn(fit.dir)}.`);
-  s.score = res.total; s.bingo = res.bingo; s.place = pl;
+  if (!mine.length) { say('info', 'Add at least one of your tiles.'); return s; }
+  const dn = d => d === 'h' ? 'across' : 'down';
+  let fit = null, fail = null;
+  for (const d of wb.dirs) {
+    const f = fits(d, before, after);
+    if (!f.ok) { fail = fail || f.msg; continue; }
+    const pl = [...f.cellsB, ...wb.gapCells, ...f.cellsA].map((k, j) => ({ k, d: mine[j].d, ri: mine[j].i }));
+    const res = evaluate(S.board, pl);
+    if (res.ok) { fit = { dir: d, pl, res }; break; }
+    const badRun = res.runs.find(r => r.err);
+    fail = fail || (badRun ? `That play would also make the line ${badRun.s} ${dn(badRun.dir)}, and ${badRun.err.charAt(0).toLowerCase() + badRun.err.slice(1)}` : (res.msg || 'The board won’t accept this play.'));
+  }
+  if (!fit) { say('bad', fail); return s; }
+  if (wb.dirs.length > 1 && fit.dir !== wb.dirs[0]) say('info', `It didn’t work going ${dn(wb.dirs[0])}, so it goes ${dn(fit.dir)}.`);
+  say('ok', `Fits on the board going ${dn(fit.dir)}${fit.res.runs.length > 1 ? `, and the ${fit.res.runs.length - 1 === 1 ? 'line it crosses is' : 'lines it crosses are'} true too` : ''}.`);
+  s.score = fit.res.total; s.bingo = fit.res.bingo; s.place = fit.pl;
   return s;
 }
 function noBaseCheck(s, digs, say) {
@@ -1273,6 +1291,7 @@ function noBaseCheck(s, digs, say) {
 function renderWB() {
   const back = $('wbBack');
   if (ui.wb && !canPlan()) ui.wb = null;
+  if (ui.wb && ui.wb.board !== S.board.join(',')) { ui.wb = null; ui.msg = 'The board changed, so the Workbench closed. Open it again to keep working.'; ui.err = false; }
   const open = !!ui.wb;
   back.hidden = !open;
   document.body.style.overflow = open ? 'hidden' : '';
@@ -1280,8 +1299,14 @@ function renderWB() {
   const wb = ui.wb, rack = me().rack, baseD = wb.base.map(k => S.board[k]);
   const usedC = new Set(wb.items.filter(x => x.t === 'c').map(x => x.i)), usedR = new Set(wb.items.filter(x => x.t === 'r').map(x => x.i));
   const dn = d => d === 'h' ? 'across' : 'down';
-  $('wbDir').textContent = !baseD.length ? (S.board.some(x => x != null) ? 'No base selected · scratch math' : 'No base needed · first play goes through the star') : `Base ${baseD.join('')} · ${wb.dirs.length > 1 ? `tries ${dn(wb.dirs[0])}, then ${dn(wb.dirs[1])}` : `goes ${dn(wb.dirs[0])}`}`;
-  $('wbBase').innerHTML = !baseD.length ? '<span class="msg info">None selected. Tap a tile on the board, or drag across a line of tiles, to pick a base.</span>' : baseD.map((d, i) => usedC.has(i) ? '<span class="wt slot" aria-hidden="true"></span>' : `<button class="wt circ" data-c="${i}" aria-label="Base tile ${d}">${d}</button>`).join('');
+  const nGaps = wb.gapCells.length;
+  $('wbDir').textContent = !baseD.length ? (S.board.some(x => x != null) ? 'No base selected · scratch math' : 'No base needed · first play goes through the star') : `Base ${baseLabel(wb.cells)} · ${wb.dirs.length > 1 ? `tries ${dn(wb.dirs[0])}, then ${dn(wb.dirs[1])}` : `goes ${dn(wb.dirs[0])}`}${nGaps ? ` · ${nGaps} empty square${nGaps === 1 ? '' : 's'} to fill` : ''}`;
+  let bi = 0;
+  $('wbBase').innerHTML = !baseD.length ? '<span class="msg info">None selected. Tap a tile on the board, or drag across a line of tiles, to pick a base.</span>' : wb.cells.map(k => {
+    if (S.board[k] == null) return '<span class="wt gap" aria-label="Empty square to fill with one of your tiles">gap</span>';
+    const i = bi++, d = S.board[k];
+    return usedC.has(i) ? '<span class="wt slot" aria-hidden="true"></span>' : `<button class="wt circ" data-c="${i}" aria-label="Base tile ${d}">${d}</button>`;
+  }).join('');
   $('wbMine').innerHTML = rack.length ? rack.map((d, i) => usedR.has(i) ? '<span class="wt slot" aria-hidden="true"></span>' : `<button class="wt mine" data-r="${i}" aria-label="Your tile ${d}">${d}</button>`).join('') : '<span class="msg info">No tiles left.</span>';
   $('wbScreen').innerHTML = wb.items.length ? wb.items.map((x, j) => x.t === 'op'
       ? `<button class="sop" data-j="${j}" aria-label="Remove ${x.v}">${x.v}</button>`
