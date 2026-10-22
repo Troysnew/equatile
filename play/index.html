@@ -1,0 +1,1334 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<meta name="description" content="Play Equatile: a Scrabble-style game with number tiles where every line is an equation.">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Equatile</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@500;700;800&family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<style>
+/* Layout: engineer's-pad board on the left, scorecard column on the right; stacks on phones */
+:root{
+  --bg:#eef3e8; --paper:#e2ecd5; --void:#e8efdf; --grid:#b4c9a0; --card:#f8fbf4; --line:#cfdcc3;
+  --ink:#1d291d; --muted:#5a6a55; --pencil:#c23a2b; --pencil-soft:#f5d9d3;
+  --tile:#fbf6e6; --tile-edge:#d6c99f; --tile-ink:#26221a; --tile-last:#fff2b8;
+  --p2t:#cde0ef; --p3t:#8db3d6; --p2e:#f3d1c8; --p3e:#e2907e; --prem-ink:#33433a;
+  --ok:#2e7d4f; --ok-soft:#d3ecd9; --bad:#b3372a; --warn:#94660a;
+  --pad:#e4eed6; --padline:#cfdcbd; --circ-bg:#22322a; --circ-ink:#f2f6ea; --circ-edge:#0e1712;
+  --mine-bg:#f6d64b; --mine-ink:#2b2306; --mine-edge:#c6a426;
+  --f-display:"Bricolage Grotesque", "Arial Narrow", system-ui, sans-serif;
+  --f-body:"Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-num:"Azeret Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0f1712; --paper:#192920; --void:#15231b; --grid:#2b3f31; --card:#15211a; --line:#29392e;
+  --ink:#e3ecdc; --muted:#98a993; --pencil:#f07261; --pencil-soft:#4a2620;
+  --tile:#f1e9d0; --tile-edge:#b9a776; --tile-ink:#221e16; --tile-last:#ffe68a;
+  --p2t:#223c55; --p3t:#2e5f8c; --p2e:#542d26; --p3e:#8a4232; --prem-ink:#d6e2d2;
+  --ok:#6cc690; --ok-soft:#1f3a29; --bad:#f07261; --warn:#e3b34a;
+  --pad:#15231a; --padline:#1f3327; --circ-bg:#060b08; --circ-ink:#e7efe0; --circ-edge:#3a5243;
+  --mine-bg:#e9c63c; --mine-ink:#251d03; --mine-edge:#a6871a; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0f1712; --paper:#192920; --void:#15231b; --grid:#2b3f31; --card:#15211a; --line:#29392e;
+  --ink:#e3ecdc; --muted:#98a993; --pencil:#f07261; --pencil-soft:#4a2620;
+  --tile:#f1e9d0; --tile-edge:#b9a776; --tile-ink:#221e16; --tile-last:#ffe68a;
+  --p2t:#223c55; --p3t:#2e5f8c; --p2e:#542d26; --p3e:#8a4232; --prem-ink:#d6e2d2;
+  --ok:#6cc690; --ok-soft:#1f3a29; --bad:#f07261; --warn:#e3b34a;
+  --pad:#15231a; --padline:#1f3327; --circ-bg:#060b08; --circ-ink:#e7efe0; --circ-edge:#3a5243;
+  --mine-bg:#e9c63c; --mine-ink:#251d03; --mine-edge:#a6871a; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.app{max-width:1120px;margin:0 auto;padding-block:20px 40px;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));display:flex;flex-direction:column;gap:18px}
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:14px}
+h1{font-family:var(--f-display);font-weight:800;font-size:clamp(2rem,5vw,2.8rem);line-height:1;margin:0;letter-spacing:-.02em}
+h1 .eq{color:var(--pencil)}
+.tag{margin:6px 0 0;color:var(--muted);max-width:44ch;text-wrap:balance}
+.scores{display:flex;gap:8px;flex-wrap:wrap;align-items:stretch}
+.chip{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px 12px;min-width:100px;display:flex;flex-direction:column}
+.chip .nm{font-size:.74rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600;white-space:nowrap}
+.chip .sc{font-family:var(--f-num);font-weight:800;font-size:1.45rem;font-variant-numeric:tabular-nums;line-height:1.1}
+.chip.on{border-color:var(--pencil);box-shadow:inset 0 -3px 0 var(--pencil)}
+.chip.dim .sc{color:var(--muted)}
+
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;align-items:start}
+@media (max-width:860px){.layout{grid-template-columns:minmax(0,1fr)}}
+.play{display:flex;flex-direction:column;gap:12px;min-width:0}
+.board{container-type:inline-size;display:grid;grid-template-columns:repeat(13,1fr);gap:2px;padding:2px;background:var(--grid);border-radius:8px;width:100%;max-width:640px;aspect-ratio:1}
+.cell{position:relative;border:0;padding:0;margin:0;background:var(--paper);color:var(--prem-ink);font-family:var(--f-num);font-weight:700;font-size:calc(100cqi / 13 * .3);cursor:pointer;border-radius:2px;display:grid;place-items:center;min-width:0}
+.cell:focus-visible{outline:2px solid var(--pencil);outline-offset:-2px;z-index:2}
+.cell.p2T{background:var(--p2t)} .cell.p3T{background:var(--p3t)}
+.cell.p2E{background:var(--p2e)} .cell.p3E{background:var(--p3e)}
+.cell.void{background:var(--void);cursor:default}
+.cell.hole{background:var(--paper);box-shadow:inset 0 0 0 2px var(--pencil);border-radius:4px}
+.cell .star{font-size:calc(100cqi / 13 * .55);color:var(--pencil);line-height:1}
+.tile{position:absolute;inset:1px;background:var(--tile);color:var(--tile-ink);border-radius:14%;box-shadow:inset 0 -.14em 0 var(--tile-edge);display:grid;place-items:center;font-family:var(--f-num);font-weight:800;font-size:calc(100cqi / 13 * .56);line-height:1}
+.tile .pt{position:absolute;right:10%;bottom:6%;font-size:.36em;font-weight:700;opacity:.65}
+.tile.last{background:var(--tile-last)}
+.tile.pending{box-shadow:inset 0 -.14em 0 var(--tile-edge),0 0 0 2px var(--pencil);animation:pop .14s ease-out}
+.tile.bad{box-shadow:inset 0 -.14em 0 var(--tile-edge),0 0 0 3px var(--bad);background:var(--pencil-soft);color:var(--ink)}
+.tile.good{box-shadow:inset 0 -.14em 0 var(--tile-edge),0 0 0 2px var(--ok)}
+@keyframes pop{from{transform:scale(.8)}to{transform:scale(1)}}
+
+.status{min-height:1.5em;font-weight:600;color:var(--muted)}
+.status.err{color:var(--bad)}
+.rack{display:flex;gap:6px;flex-wrap:wrap;min-height:58px;align-items:center}
+.rt{width:52px;height:56px;border:0;border-radius:9px;background:var(--tile);color:var(--tile-ink);box-shadow:inset 0 -5px 0 var(--tile-edge);font-family:var(--f-num);font-weight:800;font-size:1.7rem;position:relative;cursor:pointer;transition:transform .1s}
+.rt .pt{position:absolute;right:6px;bottom:7px;font-size:.62rem;opacity:.65}
+.rt.sel{transform:translateY(-6px);box-shadow:inset 0 -5px 0 var(--tile-edge),0 0 0 3px var(--pencil)}
+.rt.swp{box-shadow:inset 0 -5px 0 var(--tile-edge),0 0 0 3px var(--muted);opacity:.75}
+.rt.gone{background:transparent;box-shadow:inset 0 0 0 2px var(--line);cursor:default}
+.rt:focus-visible{outline:3px solid var(--pencil);outline-offset:2px}
+.rack-hidden{color:var(--muted);font-style:italic}
+
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+.btn{font:600 .92rem var(--f-body);border:1px solid var(--line);background:var(--card);color:var(--ink);padding:9px 14px;border-radius:8px;cursor:pointer}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn:focus-visible{outline:2px solid var(--pencil);outline-offset:2px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.primary{background:var(--pencil);border-color:var(--pencil);color:#fff}
+.btn.ghost{margin-left:auto}
+
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.panel h2{font-family:var(--f-display);font-weight:700;font-size:1.05rem;margin:0 0 8px;letter-spacing:-.01em}
+.panel h3{font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:14px 0 4px}
+.eqline{font-family:var(--f-num);font-weight:700;font-size:1.05rem;display:flex;flex-wrap:wrap;gap:.35em;align-items:baseline}
+.eqline .op{color:var(--pencil)}
+.prow{display:flex;justify-content:space-between;gap:10px;align-items:baseline;padding:6px 0;border-bottom:1px dashed var(--line)}
+.prow:last-of-type{border-bottom:0}
+.prow .digits{font-family:var(--f-num);color:var(--muted);font-size:.8rem}
+.prow .why{color:var(--bad);font-size:.85rem}
+.prow .pts{font-family:var(--f-num);font-weight:800;white-space:nowrap}
+.ptotal{display:flex;justify-content:space-between;margin-top:8px;font-weight:700}
+.ptotal .v{font-family:var(--f-num)}
+.empty{color:var(--muted);margin:0}
+.meter{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px}
+.meter span{width:18px;height:18px;border-radius:4px}
+.meter .x{background:var(--bad)} .meter .r{background:var(--tile-last);box-shadow:inset 0 0 0 1px var(--tile-edge)} .meter .o{background:var(--ok)}
+.log{list-style:none;margin:0;padding:0;max-height:260px;overflow:auto;display:flex;flex-direction:column}
+.log li{padding:7px 0;border-bottom:1px dashed var(--line);display:grid;grid-template-columns:1fr auto;gap:2px 10px}
+.log li:last-child{border-bottom:0}
+.log .who{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+.log .eqline{font-size:.92rem;grid-column:1}
+.log .pts{grid-column:2;grid-row:1 / span 3;font-family:var(--f-num);font-weight:800;align-self:center}
+.rules p,.rules li{margin:0;color:var(--ink)}
+.rules ul{margin:6px 0 0;padding-left:1.1em;display:flex;flex-direction:column;gap:5px}
+.rules .k{font-family:var(--f-num);font-weight:700}
+.demo{display:flex;flex-direction:column;gap:8px;margin:4px 0 10px}
+.drow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.mini{display:flex;gap:3px}
+.mini span{width:26px;height:28px;border-radius:5px;background:var(--tile);color:var(--tile-ink);box-shadow:inset 0 -3px 0 var(--tile-edge);display:grid;place-items:center;font-family:var(--f-num);font-weight:800}
+.mini span.gap{background:var(--paper);box-shadow:inset 0 0 0 1px var(--grid)}
+.mini span.new{box-shadow:inset 0 -3px 0 var(--tile-edge),0 0 0 2px var(--pencil)}
+.legend{display:grid;grid-template-columns:auto 1fr;gap:4px 8px;margin-top:10px;font-size:.88rem;align-items:center}
+.sw{width:24px;height:18px;border-radius:3px;display:grid;place-items:center;font:700 .62rem var(--f-num);color:var(--prem-ink)}
+
+.overlay{position:fixed;inset:0;background:rgba(10,16,12,.55);display:grid;place-items:center;padding:20px;z-index:20;overflow:auto}
+.modal{background:var(--card);color:var(--ink);border-radius:14px;padding:22px;width:min(440px,100%);display:flex;flex-direction:column;gap:14px;border:1px solid var(--line)}
+.modal h2{font-family:var(--f-display);font-size:1.5rem;margin:0;line-height:1.1}
+.modal p{margin:0;color:var(--muted)}
+.sub{display:flex;flex-direction:column;gap:10px}
+.lbl{font-weight:600;font-size:.9rem}
+.field{display:flex;flex-direction:column;gap:4px;font-weight:600;font-size:.9rem}
+.field input{font:500 1rem var(--f-body);padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg label{flex:1 1 0;min-width:90px;border:1px solid var(--line);border-radius:8px;padding:9px 6px;text-align:center;cursor:pointer;font-weight:600;font-size:.92rem;position:relative}
+.seg label small{display:block;font-weight:500;color:var(--muted);font-size:.75rem}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg label:has(input:checked){border-color:var(--pencil);background:var(--pencil-soft)}
+.seg label:has(input:focus-visible){outline:2px solid var(--pencil)}
+.final{display:flex;flex-direction:column;gap:6px}
+.final div{display:flex;justify-content:space-between;font-family:var(--f-num);font-weight:700}
+.invite{display:flex;flex-direction:column;gap:6px}
+.code{font:800 2rem var(--f-num);letter-spacing:.12em;color:var(--pencil)}
+.share{font-family:var(--f-num);font-size:.9rem;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;white-space:pre-wrap;user-select:all;margin:0}
+.row-end{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+/* circling + workbench */
+.cell.filled{touch-action:none}
+.tile.circ{box-shadow:inset 0 -.14em 0 var(--tile-edge),0 0 0 3px var(--ok);background:var(--ok-soft);color:var(--ink)}
+.sheet-back{position:fixed;inset:0;z-index:30;background:rgba(10,16,12,.5);display:flex;align-items:flex-end;justify-content:center}
+.sheet{width:100%;max-width:760px;max-height:90vh;max-height:90dvh;overflow-y:auto;overscroll-behavior:contain;background-color:var(--pad);background-image:linear-gradient(var(--padline) 1px,transparent 1px),linear-gradient(90deg,var(--padline) 1px,transparent 1px);background-size:22px 22px;border-radius:18px 18px 0 0;border:1px solid var(--line);border-bottom:0;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));display:flex;flex-direction:column;gap:14px;box-shadow:0 -10px 40px rgba(0,0,0,.25)}
+.sheet-head,.sheet-foot{position:sticky;z-index:2;background:var(--pad);margin-left:calc(-1 * max(16px, env(safe-area-inset-left, 0px)));margin-right:calc(-1 * max(16px, env(safe-area-inset-right, 0px)));padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+.sheet-head{top:0;display:flex;justify-content:space-between;align-items:center;gap:12px;padding-block:14px 10px;border-bottom:1px solid var(--padline)}
+.sheet-head h2{font-family:var(--f-display);font-size:1.35rem;margin:0;line-height:1.1}
+.sheet-sub{margin:2px 0 0;color:var(--muted);font-size:.88rem}
+.sheet-foot{bottom:0;padding-block:12px calc(12px + env(safe-area-inset-bottom, 0px));border-top:1px solid var(--padline)}
+.calc{min-height:64px;background:var(--card);border:2px solid var(--ink);border-radius:10px;padding:8px;display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.calc .ph{color:var(--muted)}
+.pools{display:grid;grid-template-columns:1fr;gap:10px}
+@media (min-width:560px){.pools{grid-template-columns:1fr 1fr}}
+.pool .lbl{font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.ptiles{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;min-height:48px}
+.wt{width:44px;height:48px;border:0;border-radius:8px;font:800 1.4rem var(--f-num);display:grid;place-items:center;cursor:pointer;padding:0}
+.wt.circ{background:var(--circ-bg);color:var(--circ-ink);box-shadow:inset 0 -4px 0 var(--circ-edge)}
+.wt.mine{background:var(--mine-bg);color:var(--mine-ink);box-shadow:inset 0 -4px 0 var(--mine-edge)}
+.wt.slot{background:transparent;border:2px dashed var(--muted);opacity:.55;cursor:default}
+.wt.sm{width:34px;height:40px;font-size:1.15rem}
+.wt:focus-visible,.key:focus-visible,.sop:focus-visible{outline:3px solid var(--pencil);outline-offset:2px}
+.sop{border:0;background:transparent;color:var(--pencil);font:800 1.4rem var(--f-num);padding:0 4px;min-height:40px;cursor:pointer}
+.keys{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.key{min-height:48px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--pencil);font:800 1.35rem var(--f-num);cursor:pointer}
+.key.fn{color:var(--ink);font:600 .95rem var(--f-body)}
+.key.wide{grid-column:span 2}
+@media (min-width:560px){.keys{grid-template-columns:repeat(7,1fr)}.key.wide{grid-column:span 1}}
+.wb-panels{display:grid;grid-template-columns:1fr;gap:10px}
+@media (min-width:640px){.wb-panels{grid-template-columns:1fr 1fr}}
+.wbp{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;min-width:0}
+.wbp h3{margin:0 0 6px;font-family:var(--f-display);font-size:1rem}
+.expr{font:700 1.1rem var(--f-num);overflow-wrap:anywhere;margin:0 0 4px}
+.msg{margin:3px 0}
+.msg.ok{color:var(--ok)} .msg.bad{color:var(--bad)} .msg.warn{color:var(--warn)} .msg.info{color:var(--muted)}
+.reads{display:flex;flex-direction:column;gap:2px;margin-top:6px}
+.wscore{display:flex;justify-content:space-between;font-weight:700;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
+.wscore .v{font-family:var(--f-num)}
+.btn.wide{width:100%;padding:12px}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+@media (max-width:480px){.rt{width:42px;height:48px;font-size:1.4rem}.rack{gap:4px}.btn{padding:8px 11px}}
+</style>
+
+<div class="app">
+  <header class="top">
+    <div>
+      <h1><a href="../" style="color:inherit;text-decoration:none" aria-label="Equatile home">Equa<span class="eq">tile</span></a></h1>
+      <p class="tag">Scrabble with number tiles. Every line you build has to read as a true equation.</p>
+    </div>
+    <div class="scores" id="scores"></div>
+  </header>
+
+  <main class="layout">
+    <section class="play" aria-label="Game">
+      <div class="board" id="board" aria-label="Game board, 13 by 13"></div>
+      <div class="status" id="status" aria-live="polite"></div>
+      <div class="rack" id="rack" aria-label="Your tiles"></div>
+      <div class="actions" id="actions">
+        <button class="btn primary" id="bPlay">Play</button>
+        <button class="btn" id="bRecall">Recall</button>
+        <button class="btn" id="bShuffle">Shuffle</button>
+        <button class="btn" id="bSwap">Swap</button>
+        <button class="btn" id="bPass">Pass</button>
+        <button class="btn" id="bHint">Show a move</button>
+        <button class="btn" id="bWb">Workbench</button>
+        <button class="btn ghost" id="bNew">New game</button>
+      </div>
+    </section>
+
+    <aside class="side">
+      <section class="panel" aria-live="polite">
+        <h2 id="pvTitle">This play</h2>
+        <div id="preview"></div>
+      </section>
+      <section class="panel" id="logPanel">
+        <h2>Plays so far</h2>
+        <ol class="log" id="log"></ol>
+      </section>
+      <section class="panel rules">
+        <h2>How it works</h2>
+        <div class="demo">
+          <div class="drow"><div class="mini"><span>9</span><span class="gap"></span><span>2</span></div><span>Drop a 7 in the gap</span></div>
+          <div class="drow"><div class="mini"><span>9</span><span class="new">7</span><span>2</span></div><div class="eqline">9<span class="op">−</span>7<span class="op">=</span>2</div></div>
+          <div class="drow"><div class="mini"><span>9</span><span>7</span><span>2</span><span class="new">6</span><span class="new">7</span><span class="new">1</span></div><div class="eqline">97<span class="op">−</span>26<span class="op">=</span>71</div></div>
+        </div>
+        <ul>
+          <li>Place one or more tiles in a single row or column, touching what's already on the board.</li>
+          <li>Every line of 2 or more touching tiles, across and down, must split into a true equation. You don't place symbols; the game finds where they go.</li>
+          <li>Operators are <span class="k">+ − × ÷</span>. The equals sign can sit last or first: <span class="k">297</span> reads as <span class="k">2 = 9 − 7</span>.</li>
+          <li>Adding 0, subtracting 0, multiplying by 0 and dividing 0 don't count. <span class="k">7 − 7 = 0</span> is fine.</li>
+          <li>Multi-digit numbers can't start with 0. Two tiles alone can never be an equation.</li>
+          <li>The first play covers the star and uses at least 3 tiles. The star has no bonus.</li>
+          <li>× or ÷ equations earn <span class="k">+5</span>. Playing all 7 tiles earns <span class="k">+20</span>.</li>
+          <li>Show a move costs part of the points of the move it shows, whether or not you play it: 50% against Easy, 75% against Medium, 100% against Hard or a person. From your 4th hint on, every hint costs 100%. You get one hint per turn: pressing it again shows the same move at no extra charge. If no move is found, it's free.</li>
+          <li>The second player starts with 8 tiles instead of 7 to make up for going second. After their first play, racks refill to 7 as usual.</li>
+          <li>Online: choose New game, then Online. Start a game to get a 6-character code, or join with a friend's code. Each player sees only their own tiles, and the server checks every move. Hints are off in online games.</li>
+          <li>Tap a tile on the board, or drag across a line of tiles, to pick a base. Then open the Workbench to try math with the base and your tiles before you commit. The Workbench works without a base too, as scratch math. It's free.</li>
+          <li>The game ends when the bag is empty and someone plays out, or after 6 scoreless turns. Leftover tile points count against you.</li>
+        </ul>
+        <h3>Puzzles</h3>
+        <ul>
+          <li>Fill every red-outlined square using exactly the tiles in your rack so every line is a true equation. Any arrangement that works counts.</li>
+          <li>Each revealed tile adds <span class="k">30</span> seconds to your time.</li>
+          <li>The daily puzzle is the same for everyone and resets at midnight. Random puzzles come in three sizes.</li>
+        </ul>
+        <div class="legend">
+          <span class="sw" style="background:var(--p2t)">2T</span><span>Doubles that tile's points</span>
+          <span class="sw" style="background:var(--p3t)">3T</span><span>Triples that tile's points</span>
+          <span class="sw" style="background:var(--p2e)">2E</span><span>Doubles the whole equation</span>
+          <span class="sw" style="background:var(--p3e)">3E</span><span>Triples the whole equation</span>
+        </div>
+      </section>
+    </aside>
+  </main>
+</div>
+<div class="overlay" id="overlay" hidden><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
+<div class="sheet-back" id="wbBack" hidden>
+  <section class="sheet" id="wbSheet" role="dialog" aria-modal="true" aria-labelledby="wbTitle">
+    <header class="sheet-head">
+      <div><h2 id="wbTitle">Workbench</h2><p class="sheet-sub" id="wbDir"></p></div>
+      <button class="btn" id="wbClose">Close</button>
+    </header>
+    <div class="calc" id="wbScreen" aria-label="Calculator screen, tap an item to remove it"></div>
+    <div class="pools">
+      <div class="pool"><span class="lbl">Base tiles from the board</span><div class="ptiles" id="wbBase"></div></div>
+      <div class="pool"><span class="lbl">Your tiles</span><div class="ptiles" id="wbMine"></div></div>
+    </div>
+    <div class="keys" id="wbKeys">
+      <button class="key" data-key="+" aria-label="Plus">+</button>
+      <button class="key" data-key="−" aria-label="Minus">−</button>
+      <button class="key" data-key="×" aria-label="Times">×</button>
+      <button class="key" data-key="÷" aria-label="Divided by">÷</button>
+      <button class="key" data-key="=" aria-label="Equals">=</button>
+      <button class="key fn" data-key="back" aria-label="Backspace">⌫</button>
+      <button class="key fn wide" data-key="clear">Clear</button>
+    </div>
+    <div class="wb-panels">
+      <section class="wbp" aria-live="polite"><h3>What the math says</h3><div id="wbMath"></div></section>
+      <section class="wbp" aria-live="polite"><h3>Is the string valid?</h3><div id="wbStr"></div></section>
+    </div>
+    <footer class="sheet-foot"><button class="btn primary wide" id="wbPlace" disabled>Place on the board</button></footer>
+  </section>
+</div>
+
+<script>
+(() => {
+const N = 13, MID = 6, CENTER = MID * N + MID, RACK = 7;
+const PTS = [3, 1, 1, 1, 2, 2, 2, 3, 3, 3];
+const DIST = [7, 12, 11, 10, 9, 8, 8, 7, 7, 7];
+const OPBONUS = 5, BINGO = 20, REVEAL_SECS = 30, HINT_RATE = { easy: 0.5, medium: 0.75, hard: 1 }, HINT_DISCOUNTED = 3;
+const LEVELS = {
+  easy:   { label: 'Easy',   maxLen: 3, budget: 700,  holes: 5 },
+  medium: { label: 'Medium', maxLen: 5, budget: 1300, holes: 8 },
+  hard:   { label: 'Hard',   maxLen: 7, budget: 2500, holes: 11 },
+};
+const EPOCH = new Date(2026, 9, 22);
+const PREM = Array(N * N).fill(null);
+(() => {
+  const Q = { '3E': [[0,0],[0,6]], '2E': [[1,1],[2,2],[3,3]], '3T': [[1,5],[5,5]], '2T': [[0,3],[2,6],[4,1]] };
+  for (const t in Q) for (const [r, c] of Q[t]) for (const [a, b] of [[r,c],[c,r]])
+    for (const [x, y] of [[a,b],[N-1-a,b],[a,N-1-b],[N-1-a,N-1-b]]) PREM[x*N+y] = t;
+})();
+const PNAME = { '2T': 'double tile', '3T': 'triple tile', '2E': 'double equation', '3E': 'triple equation' };
+
+let S = null;
+const ui = { sel: null, swap: false, swapSet: new Set(), pending: [], thinking: false, msg: '', err: false, bad: null, good: false, circSel: [], wb: null, wbPlace: null };
+const $ = id => document.getElementById(id);
+const isPz = () => S && S.mode === 'puzzle';
+const isOn = () => S && S.mode === 'online';
+const FN_URL = 'https://mtdbsgmjpjuczadupnji.supabase.co/functions/v1/equatile';
+const SB_URL = 'https://mtdbsgmjpjuczadupnji.supabase.co', SB_KEY = 'sb_publishable_VBjYbvZX-7b2fn3gTMweaA_ooqn1WYn';
+
+/* ---------- equations ---------- */
+const eqCache = new Map();
+function findEqs(s) {
+  if (eqCache.has(s)) return eqCache.get(s);
+  const n = s.length, out = [];
+  const ok = x => x.length === 1 || x[0] !== '0';
+  if (n >= 3) for (let i = 1; i <= n - 2; i++) for (let j = i + 1; j <= n - 1; j++) {
+    const a = s.slice(0, i), b = s.slice(i, j), c = s.slice(j);
+    if (!ok(a) || !ok(b) || !ok(c)) continue;
+    const A = +a, B = +b, C = +c;
+    const L = (op, bonus) => out.push({ parts: [a, op, b, '=', c], bonus });
+    const R = (op, bonus) => out.push({ parts: [a, '=', b, op, c], bonus });
+    // A op B = C   (no adding 0, subtracting 0, multiplying by 0, or dividing 0)
+    if (A !== 0 && B !== 0 && A + B === C) L('+', false);
+    if (B !== 0 && A - B === C) L('−', false);
+    if (A !== 0 && B !== 0 && A * B === C) L('×', true);
+    if (A !== 0 && B !== 0 && A === B * C) L('÷', true);
+    // A = B op C
+    if (B !== 0 && C !== 0 && A === B + C) R('+', false);
+    if (C !== 0 && A === B - C) R('−', false);
+    if (B !== 0 && C !== 0 && A === B * C) R('×', true);
+    if (B !== 0 && C !== 0 && B === A * C) R('÷', true);
+  }
+  if (eqCache.size > 200000) eqCache.clear();
+  eqCache.set(s, out);
+  return out;
+}
+const bestEq = eqs => eqs.find(e => e.bonus) || eqs[0];
+
+/* ---------- board logic ---------- */
+function get(board, ov, r, c) {
+  if (r < 0 || r >= N || c < 0 || c >= N) return null;
+  const k = r * N + c;
+  if (ov && ov.has(k)) return ov.get(k);
+  return board[k];
+}
+function lineRun(board, ov, r, c, dr, dc) {
+  while (get(board, ov, r - dr, c - dc) != null) { r -= dr; c -= dc; }
+  const cells = []; let s = '';
+  for (;;) { const d = get(board, ov, r, c); if (d == null) break; cells.push(r * N + c); s += d; r += dr; c += dc; }
+  return { cells, s, dir: dr ? 'v' : 'h' };
+}
+function hasNeighbor(board, k) {
+  const r = Math.floor(k / N), c = k % N;
+  return get(board, null, r-1, c) != null || get(board, null, r+1, c) != null || get(board, null, r, c-1) != null || get(board, null, r, c+1) != null;
+}
+function evaluate(board, pl, fast, empty) {
+  const fail = msg => ({ ok: false, msg, runs: [], total: 0 });
+  if (!pl.length) return fail('');
+  if (empty === undefined) empty = board.every(x => x == null);
+  const ov = new Map();
+  for (const p of pl) { if (board[p.k] != null) return fail('That square is taken.'); ov.set(p.k, p.d); }
+  const rs = new Set(pl.map(p => Math.floor(p.k / N))), cs = new Set(pl.map(p => p.k % N));
+  if (rs.size > 1 && cs.size > 1) return fail('Put all your tiles in one row or one column.');
+  let dir = null;
+  if (pl.length > 1) {
+    dir = rs.size === 1 ? 'h' : 'v';
+    const ks = pl.map(p => p.k).sort((a, b) => a - b), step = dir === 'h' ? 1 : N;
+    for (let k = ks[0]; k <= ks[ks.length - 1]; k += step) if (board[k] == null && !ov.has(k)) return fail('Leave no gaps between your tiles.');
+  }
+  if (empty) { if (!ov.has(CENTER)) return fail('The first play has to cover the star.'); }
+  else if (!pl.some(p => hasNeighbor(board, p.k))) return fail('Connect to the tiles already on the board.');
+  const seen = new Set(), runs = [];
+  const add = run => { if (run.cells.length < 2) return; const key = run.dir + run.cells[0]; if (seen.has(key)) return; seen.add(key); runs.push(run); };
+  const r0 = Math.floor(pl[0].k / N), c0 = pl[0].k % N;
+  if (dir) add(lineRun(board, ov, r0, c0, dir === 'v' ? 1 : 0, dir === 'h' ? 1 : 0));
+  for (const p of pl) {
+    const r = Math.floor(p.k / N), c = p.k % N;
+    if (dir !== 'h') add(lineRun(board, ov, r, c, 0, 1));
+    if (dir !== 'v') add(lineRun(board, ov, r, c, 1, 0));
+  }
+  if (!runs.length) return fail(empty ? 'The first play needs at least 3 tiles in a line.' : 'Make a line of at least 3 tiles.');
+  let ok = true, total = 0;
+  for (const run of runs) {
+    if (run.cells.length < 3) { run.err = 'Two tiles side by side can’t make an equation.'; ok = false; if (fast) return fail(''); continue; }
+    const eqs = findEqs(run.s);
+    if (!eqs.length) { run.err = 'These digits don’t split into a true equation.'; ok = false; if (fast) return fail(''); continue; }
+    run.eq = bestEq(eqs);
+    let sum = 0, mult = 1;
+    for (const k of run.cells) {
+      const isNew = ov.has(k), d = isNew ? ov.get(k) : board[k];
+      let t = PTS[d];
+      if (isNew) { const p = PREM[k]; if (p === '2T') t *= 2; else if (p === '3T') t *= 3; else if (p === '2E') mult *= 2; else if (p === '3E') mult *= 3; }
+      sum += t;
+    }
+    run.score = sum * mult + (run.eq.bonus ? OPBONUS : 0);
+    total += run.score;
+  }
+  const bingo = ok && pl.length >= RACK;
+  if (bingo) total += BINGO;
+  return { ok, msg: ok ? '' : 'Every line has to be a true equation.', runs, total: ok ? total : 0, bingo };
+}
+// Checks a finished board: every line of 2+ tiles must be a true equation.
+function checkBoard(board, ov) {
+  const bad = new Set(), good = new Set(); let lines = 0, badLines = 0;
+  for (let k = 0; k < N * N; k++) {
+    const r = Math.floor(k / N), c = k % N;
+    if (get(board, ov, r, c) == null) continue;
+    for (const [dr, dc] of [[0, 1], [1, 0]]) {
+      if (get(board, ov, r - dr, c - dc) != null || get(board, ov, r + dr, c + dc) == null) continue;
+      const run = lineRun(board, ov, r, c, dr, dc); lines++;
+      const ok = run.cells.length >= 3 && findEqs(run.s).length > 0;
+      if (!ok) badLines++;
+      run.cells.forEach(x => (ok ? good : bad).add(x));
+    }
+  }
+  return { bad, good, lines, badLines };
+}
+
+/* ---------- move search ---------- */
+function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function shuffle(a, rng = Math.random) { for (let i = a.length - 1; i > 0; i--) { const j = rng() * (i + 1) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function uniquePerms(rack, L) {
+  const out = [], used = Array(rack.length).fill(false), cur = [];
+  (function rec() {
+    if (cur.length === L) { out.push(cur.slice()); return; }
+    const tried = new Set();
+    for (let i = 0; i < rack.length; i++) {
+      if (used[i] || tried.has(rack[i])) continue;
+      tried.add(rack[i]); used[i] = true; cur.push(i); rec(); cur.pop(); used[i] = false;
+    }
+  })();
+  return out;
+}
+// o: { maxLen, budget (ms, optional), evalLimit, foundLimit, rng }
+async function search(board, rack, o) {
+  board = board.slice(); rack = rack.slice();
+  const rng = o.rng || Math.random;
+  const empty = board.every(x => x == null);
+  const maxLen = Math.min(rack.length, o.maxLen || 7);
+  const segs = [];
+  for (const [dr, dc] of [[0, 1], [1, 0]]) for (let line = 0; line < N; line++) for (let st = 0; st < N; st++) {
+    let r = dr ? st : line, c = dr ? line : st;
+    if (board[r * N + c] != null) continue;
+    const cells = [];
+    while (r < N && c < N && cells.length < maxLen) {
+      const k = r * N + c;
+      if (board[k] == null) {
+        cells.push(k);
+        const L = cells.length;
+        if (!(dr && L === 1)) {
+          const conn = empty ? (L >= 3 && cells.includes(CENTER)) : cells.some(x => hasNeighbor(board, x));
+          if (conn) segs.push(cells.slice());
+        }
+      }
+      r += dr; c += dc;
+    }
+  }
+  shuffle(segs, rng);
+  const perms = {}, moves = [];
+  let n = 0;
+  const t0 = performance.now(); let ly = t0;
+  outer: for (const seg of segs) {
+    const L = seg.length;
+    const P = perms[L] || (perms[L] = uniquePerms(rack, L));
+    for (const perm of P) {
+      const pl = seg.map((k, i) => ({ k, d: rack[perm[i]], ri: perm[i] }));
+      const res = evaluate(board, pl, true, empty);
+      if (res.ok) { moves.push({ pl, total: res.total }); if (o.foundLimit && moves.length >= o.foundLimit) break outer; }
+      if ((++n & 255) === 0) {
+        if (o.evalLimit && n >= o.evalLimit) break outer;
+        const now = performance.now();
+        if (o.budget && now - t0 > o.budget) break outer;
+        if (now - ly > 40) { await new Promise(r => setTimeout(r, 0)); ly = performance.now(); }
+      }
+    }
+  }
+  return moves;
+}
+function pickMove(moves, level) {
+  if (!moves.length) return null;
+  moves.sort((a, b) => a.total - b.total);
+  const n = moves.length;
+  if (level === 'hard') return moves[n - 1];
+  const [lo, hi] = level === 'easy' ? [0, Math.max(1, Math.ceil(n * 0.5))] : [Math.floor(n * 0.55), Math.max(Math.floor(n * 0.55) + 1, Math.ceil(n * 0.85))];
+  return moves[Math.min(n - 1, lo + (Math.random() * (hi - lo) | 0))];
+}
+
+/* ---------- puzzles ---------- */
+function fullBag(rng) { const bag = []; DIST.forEach((n, d) => { for (let i = 0; i < n; i++) bag.push(d); }); return shuffle(bag, rng); }
+async function makePuzzle(seed, holeCount) {
+  const rng = mulberry(seed);
+  const bag = fullBag(rng), board = Array(N * N).fill(null), placed = [];
+  let rack = bag.splice(0, RACK);
+  for (let move = 0; move < 14 && placed.length < holeCount + 12; move++) {
+    const moves = await search(board, rack, { maxLen: move === 0 ? 5 : 4, evalLimit: 30000, foundLimit: 60, rng });
+    if (!moves.length) { bag.push(...rack); shuffle(bag, rng); rack = bag.splice(0, RACK); continue; }
+    moves.sort((a, b) => b.pl.length - a.pl.length || b.total - a.total);
+    const m = moves[rng() * Math.ceil(moves.length / 3) | 0];
+    for (const t of m.pl) { board[t.k] = t.d; placed.push(t.k); }
+    m.pl.map(t => t.ri).sort((a, b) => b - a).forEach(i => rack.splice(i, 1));
+    while (rack.length < RACK && bag.length) rack.push(bag.pop());
+  }
+  const holes = shuffle(placed.slice(), rng).slice(0, Math.min(holeCount, placed.length - 3));
+  const solution = {};
+  for (const k of holes) { solution[k] = board[k]; board[k] = null; }
+  return { board, holes, solution, rack: shuffle(holes.map(k => solution[k]), rng) };
+}
+function todayId() { const d = new Date(); const t = new Date(d.getFullYear(), d.getMonth(), d.getDate()); return Math.round((t - EPOCH) / 86400000) + 1; }
+const DKEY = 'equatile.daily';
+function dailyRecords() { try { return JSON.parse(localStorage.getItem(DKEY)) || {}; } catch (e) { return {}; } }
+function saveDaily(id, rec) { try { const all = dailyRecords(); all[id] = rec; localStorage.setItem(DKEY, JSON.stringify(all)); } catch (e) {} }
+
+/* ---------- game flow ---------- */
+function draw(p) { while (p.rack.length < RACK && S.bag.length) p.rack.push(S.bag.pop()); }
+function newGame(o) {
+  const players = o.mode === 'ai'
+    ? [{ name: o.p1 || 'You', ai: false }, { name: 'Computer', ai: true }]
+    : [{ name: o.p1 || 'Player 1', ai: false }, { name: o.p2 || 'Player 2', ai: false }];
+  S = { board: Array(N * N).fill(null), players: players.map(p => ({ ...p, rack: [], score: 0 })), bag: fullBag(), turn: 0, scoreless: 0, log: [], over: false, mode: o.mode, level: o.level || 'medium', last: [], handoff: o.mode === 'pp', modal: null };
+  S.players.forEach(draw);
+  if (S.bag.length) S.players[1].rack.push(S.bag.pop()); // second player starts with 8 tiles
+  resetUI(); save(); render(); maybeAI();
+}
+async function newPuzzle(kind, level) {
+  const id = todayId();
+  const holes = kind === 'daily' ? LEVELS.medium.holes : LEVELS[level].holes;
+  const seed = kind === 'daily' ? hashStr('equatile-daily-' + id) : (Math.random() * 4294967296) >>> 0;
+  if (S) S.modal = null;
+  resetUI(); ui.thinking = true; ui.msg = 'Building your puzzle…'; render();
+  const pz = await makePuzzle(seed, holes);
+  ui.thinking = false; ui.msg = '';
+  S = { board: pz.board, players: [{ name: 'You', ai: false, rack: pz.rack, score: 0 }], bag: [], turn: 0, scoreless: 0, log: [], over: false, mode: 'puzzle', last: [], handoff: false, modal: null,
+        puzzle: { kind, level: kind === 'daily' ? 'medium' : level, id, seed, holes: pz.holes, solution: pz.solution, checks: 0, reveals: 0, history: [], elapsed: 0, solved: false } };
+  if (kind === 'daily') {
+    const rec = dailyRecords()[id];
+    if (rec && rec.solved) {
+      for (const k of pz.holes) S.board[k] = rec.board ? rec.board[k] : pz.solution[k];
+      S.players[0].rack = [];
+      Object.assign(S.puzzle, { checks: rec.checks, reveals: rec.reveals, history: rec.history || [], elapsed: rec.elapsed, solved: true });
+    }
+  }
+  save(); render();
+}
+function resetUI() { ui.sel = null; ui.swap = false; ui.swapSet.clear(); ui.pending = []; ui.msg = ''; ui.err = false; ui.bad = null; ui.good = false; ui.circSel = []; ui.wb = null; ui.wbPlace = null; }
+const cur = () => S.players[S.turn];
+const me = () => isOn() ? S.players[S.online.seat] : cur();
+function hintRate(p) { if ((p.hints || 0) >= HINT_DISCOUNTED || S.mode !== 'ai') return 1; return HINT_RATE[S.level] ?? 1; }
+const humanTurn = () => S && !S.over && !ui.thinking && (isPz() ? !S.puzzle.solved : isOn() ? S.online.status === 'active' && S.turn === S.online.seat : !cur().ai && !S.handoff);
+
+function commitPlay(pl, res) {
+  const p = cur();
+  for (const t of pl) S.board[t.k] = t.d;
+  pl.map(t => t.ri).sort((a, b) => b - a).forEach(i => p.rack.splice(i, 1));
+  p.score += res.total;
+  S.log.unshift({ who: S.turn, eqs: res.runs.map(r => r.eq.parts), pts: res.total, bingo: res.bingo });
+  S.last = pl.map(t => t.k); S.scoreless = 0;
+  draw(p);
+  if (!p.rack.length && !S.bag.length) return endGame(S.turn);
+  advance();
+}
+function scoreless(note) {
+  S.log.unshift({ who: S.turn, note, pts: 0 });
+  S.scoreless++;
+  if (S.scoreless >= 6) return endGame(null);
+  advance();
+}
+function doSwap(idxs) {
+  const p = cur();
+  const out = idxs.sort((a, b) => b - a).map(i => p.rack.splice(i, 1)[0]);
+  draw(p); S.bag.push(...out); shuffle(S.bag);
+  scoreless(`Swapped ${out.length} tile${out.length > 1 ? 's' : ''}`);
+}
+function advance() {
+  S.turn = 1 - S.turn; S.hint = null; resetUI();
+  if (S.mode === 'pp') S.handoff = true;
+  save(); render(); maybeAI();
+}
+function endGame(outIdx) {
+  const left = S.players.map(p => p.rack.reduce((s, d) => s + PTS[d], 0));
+  S.players.forEach((p, i) => { p.score -= left[i]; });
+  if (outIdx != null) S.players[outIdx].score += left.reduce((a, b, i) => i === outIdx ? a : a + b, 0);
+  S.over = true; S.outIdx = outIdx;
+  resetUI(); save(); render();
+}
+async function maybeAI() {
+  if (!S || S.over || isPz() || !cur().ai || ui.thinking) return;
+  const game = S;
+  ui.thinking = true; render();
+  const t0 = performance.now(), L = LEVELS[S.level] || LEVELS.medium;
+  const moves = await search(S.board, cur().rack, { maxLen: L.maxLen, budget: L.budget });
+  const best = pickMove(moves, S.level);
+  const wait = 700 - (performance.now() - t0); if (wait > 0) await new Promise(r => setTimeout(r, wait));
+  ui.thinking = false;
+  if (S !== game) return render();
+  if (best) commitPlay(best.pl, evaluate(S.board, best.pl));
+  else if (S.bag.length >= RACK) doSwap(cur().rack.map((_, i) => i));
+  else scoreless('Passed');
+}
+
+/* ---------- online play ---------- */
+async function api(body) {
+  let r;
+  try { r = await fetch(FN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SB_KEY }, body: JSON.stringify(body) }); }
+  catch (e) { throw new Error('Couldn’t reach the game server. Check your connection. Online play needs the hosted version of Equatile.'); }
+  let out = {}; try { out = await r.json(); } catch (e) {}
+  if (!r.ok) throw new Error(out.error || 'The game server had a problem. Try again.');
+  return out;
+}
+function applyServer(v) {
+  const prevTurn = S && isOn() ? S.turn : null;
+  S.board = v.board; S.last = v.last || []; S.log = v.log || []; S.turn = v.turn;
+  S.bag = Array(v.bag).fill(0);
+  S.players = [0, 1].map(i => {
+    const p = v.players[i];
+    return { name: p && p.name ? p.name : (i === 0 ? 'Player 1' : 'Waiting…'), score: p ? p.score : 0, ai: false, rack: i === v.seat ? v.rack : Array(p ? p.tiles : 0).fill(null) };
+  });
+  S.over = v.status === 'over'; S.outIdx = v.outSeat;
+  Object.assign(S.online, { status: v.status, version: v.version, seat: v.seat, code: v.code });
+  if (prevTurn !== null && prevTurn !== v.turn) { ui.pending = []; ui.sel = null; ui.circSel = []; }
+}
+async function startOnline(kind, name, code) {
+  ui.thinking = true; ui.msg = kind === 'create' ? 'Starting an online game…' : 'Joining the game…'; ui.err = false; render();
+  try {
+    const v = await api(kind === 'create' ? { action: 'create', name } : { action: 'join', name, code });
+    S = { board: [], players: [], bag: [], turn: 0, scoreless: 0, log: [], over: false, mode: 'online', last: [], handoff: false, modal: kind === 'create' ? 'invite' : null,
+          online: { gameId: v.gameId, token: v.token, seat: v.seat, code: v.code, status: v.status, version: v.version } };
+    resetUI(); applyServer(v); save(); listen();
+  } catch (e) { ui.msg = e.message; ui.err = true; S.modal = 'new'; }
+  ui.thinking = false; render();
+}
+let syncing = false;
+async function refresh() {
+  if (!isOn() || syncing) return;
+  syncing = true;
+  try {
+    const v = await api({ action: 'state', gameId: S.online.gameId, token: S.online.token });
+    if (v.version !== S.online.version) { applyServer(v); save(); render(); }
+  } catch (e) { /* try again on the next tick */ }
+  syncing = false;
+}
+async function onlineAction(body, okMsg) {
+  ui.thinking = true; ui.msg = 'Sending…'; ui.err = false; render();
+  try {
+    const v = await api({ ...body, gameId: S.online.gameId, token: S.online.token });
+    resetUI(); applyServer(v); save();
+    ui.msg = okMsg ? okMsg(v) : '';
+  } catch (e) { ui.msg = e.message; ui.err = true; }
+  ui.thinking = false; render();
+}
+let channel = null, sbClient = null;
+function listen() {
+  try {
+    if (channel) { channel.unsubscribe(); channel = null; }
+    if (!isOn() || !window.supabase) return;
+    sbClient = sbClient || window.supabase.createClient(SB_URL, SB_KEY);
+    channel = sbClient.channel(`equatile-${S.online.gameId}`).on('broadcast', { event: 'update' }, () => refresh()).subscribe();
+  } catch (e) { channel = null; }
+}
+setInterval(() => { if (isOn() && !document.hidden && (S.online.status === 'waiting' || (S.online.status === 'active' && S.turn !== S.online.seat))) refresh(); }, 4000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+const inviteLink = () => `${location.origin}${location.pathname}#join-${S.online.code}`;
+
+/* ---------- puzzle actions ---------- */
+function openHoles() { return S.puzzle.holes.filter(k => S.board[k] == null); }
+function checkPuzzle() {
+  const P = S.puzzle, open = openHoles();
+  if (ui.pending.length < open.length) { ui.msg = `Fill all ${open.length} outlined squares first.`; ui.err = true; return render(); }
+  const ov = new Map(ui.pending.map(t => [t.k, t.d]));
+  const res = checkBoard(S.board, ov);
+  P.checks++;
+  if (!res.bad.size) {
+    for (const t of ui.pending) S.board[t.k] = t.d;
+    S.players[0].rack = []; ui.pending = [];
+    P.solved = true; P.history.push('o'); S.modal = null;
+    if (P.kind === 'daily') saveDaily(P.id, { solved: true, checks: P.checks, reveals: P.reveals, history: P.history, elapsed: P.elapsed, board: S.board });
+    ui.msg = ''; save(); return render();
+  }
+  P.history.push('x');
+  ui.bad = res.bad; ui.good = true;
+  ui.msg = `${res.lines - res.badLines} of ${res.lines} lines are true. The red tiles sit in lines that aren’t.`; ui.err = true;
+  save(); render();
+}
+function revealTile() {
+  const P = S.puzzle, rack = S.players[0].rack;
+  const open = openHoles(); if (!open.length) return;
+  const k = open.find(h => { const p = ui.pending.find(t => t.k === h); return !p || p.d !== P.solution[h]; }) ?? open[0];
+  const d = P.solution[k];
+  ui.pending = ui.pending.filter(t => t.k !== k);
+  let used = new Set(ui.pending.map(t => t.ri));
+  let ri = rack.findIndex((x, i) => x === d && !used.has(i));
+  if (ri < 0) { const j = ui.pending.findIndex(t => t.d === d); ri = ui.pending[j].ri; ui.pending.splice(j, 1); }
+  S.board[k] = d; rack.splice(ri, 1);
+  ui.pending.forEach(t => { if (t.ri > ri) t.ri--; });
+  P.reveals++; P.history.push('r'); S.last = [k]; P.elapsed += REVEAL_SECS;
+  ui.bad = null; ui.sel = null; ui.msg = `Revealed a ${d}. ${REVEAL_SECS} seconds added to your time.`; ui.err = false;
+  if (!openHoles().length) { P.checks--; checkPuzzle(); return; }
+  save(); render();
+}
+function fmtTime(s) { s = Math.floor(s); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
+function shareText() {
+  const P = S.puzzle;
+  const sq = P.history.map(h => h === 'o' ? '🟩' : h === 'r' ? '🟨' : '🟥').join('');
+  const head = P.kind === 'daily' ? `Equatile Daily #${P.id}` : `Equatile Random · ${LEVELS[P.level].label}`;
+  return `${head}\n${sq}\nSolved in ${fmtTime(P.elapsed)} · ${P.checks} check${P.checks === 1 ? '' : 's'}${P.reveals ? ` · ${P.reveals} reveal${P.reveals === 1 ? '' : 's'}` : ''}`;
+}
+setInterval(() => {
+  if (!isPz() || S.puzzle.solved || ui.thinking || document.hidden || !$('overlay').hidden) return;
+  S.puzzle.elapsed++;
+  const t = $('tmr'); if (t) t.textContent = fmtTime(S.puzzle.elapsed);
+  if (S.puzzle.elapsed % 5 === 0) save();
+}, 1000);
+
+/* ---------- persistence ---------- */
+const KEY = 'equatile.v2';
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+function load() { try { const s = JSON.parse(localStorage.getItem(KEY)); return s && s.board ? s : null; } catch (e) { return null; } }
+
+/* ---------- rendering ---------- */
+const boardEl = $('board'), cells = [];
+for (let k = 0; k < N * N; k++) {
+  const b = document.createElement('button');
+  b.className = 'cell'; b.type = 'button'; b.dataset.k = k;
+  b.addEventListener('click', e => onCell(k, e));
+  b.addEventListener('keydown', e => onCellKey(e, k));
+  boardEl.appendChild(b); cells.push(b);
+}
+function tileHTML(d, cls) { return `<span class="tile ${cls}">${d}<span class="pt">${PTS[d]}</span></span>`; }
+function eqHTML(parts) { return `<span class="eqline">${parts.map(x => /[+−×÷=]/.test(x) ? `<span class="op">${x}</span>` : x).join('')}</span>`; }
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function renderScores() {
+  if (isPz()) {
+    const P = S.puzzle;
+    $('scores').innerHTML = `<div class="chip on"><span class="nm">${P.kind === 'daily' ? 'Daily' : 'Random'}</span><span class="sc">${P.kind === 'daily' ? '#' + P.id : LEVELS[P.level].label}</span></div>
+      <div class="chip"><span class="nm">Time</span><span class="sc" id="tmr">${fmtTime(P.elapsed)}</span></div>
+      <div class="chip"><span class="nm">Checks</span><span class="sc">${P.checks}</span></div>
+      <div class="chip dim"><span class="nm">Squares left</span><span class="sc">${openHoles().length}</span></div>`;
+    return;
+  }
+  $('scores').innerHTML = S.players.map((p, i) => `<div class="chip ${!S.over && i === S.turn && (!isOn() || S.online.status === 'active') ? 'on' : ''}"><span class="nm">${esc(p.name)}${p.ai ? ' · ' + LEVELS[S.level].label : ''}${isOn() && i === S.online.seat ? ' (you)' : ''}${!S.over && i === S.turn && (!isOn() || S.online.status === 'active') ? ' · to play' : ''}</span><span class="sc">${p.score}</span></div>`).join('')
+    + `<div class="chip dim"><span class="nm">Bag</span><span class="sc">${S.bag.length}</span></div>`;
+}
+function render() {
+  if (!S) { $('status').textContent = ui.msg; return; }
+  const pz = isPz();
+  renderScores();
+  // board
+  const pend = new Map(ui.pending.map(p => [p.k, p.d]));
+  const last = new Set(S.last), holes = pz ? new Set(S.puzzle.holes) : null, circ = new Set(ui.circSel);
+  for (let k = 0; k < N * N; k++) {
+    const c = cells[k], d = S.board[k], pr = pz ? null : PREM[k];
+    let cls = 'cell';
+    const r = Math.floor(k / N) + 1, col = k % N + 1;
+    let label = `Row ${r}, column ${col}`;
+    if (d != null) {
+      const st = circ.has(k) ? 'circ' : ui.bad && ui.bad.has(k) ? 'bad' : (pz && S.puzzle.solved && holes.has(k) ? 'good' : (last.has(k) ? 'last' : ''));
+      c.innerHTML = tileHTML(d, st); label += `, ${d}${circ.has(k) ? ', selected' : ''}`;
+    } else if (pend.has(k)) {
+      c.innerHTML = tileHTML(pend.get(k), ui.bad && ui.bad.has(k) ? 'bad' : 'pending'); label += `, your ${pend.get(k)}, tap to take back`;
+    } else if (pz) {
+      if (holes.has(k)) { cls += ' hole'; label += ', empty, fill this square'; } else { cls += ' void'; label += ', not used'; }
+      c.innerHTML = '';
+    } else {
+      if (pr) cls += ' p' + pr;
+      c.innerHTML = k === CENTER ? '<span class="star">★</span>' : (pr || '');
+      if (pr) label += `, ${PNAME[pr]}`; label += ', empty';
+    }
+    if (d != null && !pz) cls += ' filled';
+    c.className = cls;
+    c.setAttribute('aria-label', label);
+  }
+  // rack
+  const p = me(), rackEl = $('rack');
+  if (S.over || (pz && S.puzzle.solved)) rackEl.innerHTML = pz ? '<span class="rack-hidden">Solved. Every tile is placed.</span>' : '';
+  else if (!pz && (p.ai || S.handoff)) rackEl.innerHTML = `<span class="rack-hidden">${p.ai ? 'Computer’s tiles are hidden.' : 'Tiles hidden until the next player is ready.'}</span>`;
+  else {
+    const used = new Set(ui.pending.map(t => t.ri));
+    rackEl.innerHTML = p.rack.map((d, i) => used.has(i)
+      ? `<button class="rt gone" disabled aria-label="Empty slot"></button>`
+      : `<button class="rt ${ui.sel === i ? 'sel' : ''} ${ui.swapSet.has(i) ? 'swp' : ''}" data-i="${i}" aria-pressed="${ui.sel === i || ui.swapSet.has(i)}" aria-label="Tile ${d}, ${PTS[d]} point${PTS[d] > 1 ? 's' : ''}">${d}<span class="pt">${PTS[d]}</span></button>`).join('');
+    rackEl.querySelectorAll('.rt[data-i]').forEach(b => b.addEventListener('click', () => onRack(+b.dataset.i)));
+  }
+  // status
+  const st = $('status');
+  st.classList.toggle('err', ui.err);
+  st.textContent = ui.thinking ? (ui.msg || (!pz && cur().ai ? 'The computer is looking for a play…' : 'Looking for a play…'))
+    : S.over ? 'Game over.'
+    : pz && S.puzzle.solved ? `Solved in ${fmtTime(S.puzzle.elapsed)}.`
+    : ui.msg ? ui.msg
+    : isOn() && S.online.status === 'waiting' ? `Waiting for someone to join. Share code ${S.online.code}.`
+    : isOn() && S.turn !== S.online.seat ? `${esc(cur().name)} is taking their turn. Their move will show up here.`
+    : ui.circSel.length && !pz ? `Base ${ui.circSel.map(k => S.board[k]).join('')} selected. Open the Workbench, tap another tile in line to extend it, or tap it again to clear.`
+    : ui.swap ? 'Pick the tiles you want to swap, then press Swap again.'
+    : pz ? 'Tap a tile, then an outlined square.'
+    : isOn() ? 'Your turn. Tap a tile, then a square.'
+    : `${cur().name === 'You' ? 'Your' : esc(cur().name) + '’s'} turn. Tap a tile, then a square.`;
+  // actions
+  const h = humanTurn();
+  $('bSwap').hidden = pz; $('bPass').hidden = pz; $('bHint').hidden = isOn();
+  $('bPlay').textContent = pz ? 'Check' : 'Play';
+  $('bHint').textContent = pz ? `Reveal a tile (+${REVEAL_SECS}s)` : S.hint ? 'Show my hint again' : `Show a move (−${Math.round(hintRate(cur()) * 100)}%)`;
+  const cm = false;
+  $('bPlay').disabled = !h || ui.swap || cm || !ui.pending.length;
+  $('bRecall').disabled = !h || cm || !ui.pending.length;
+  $('bShuffle').disabled = !h || ui.swap || cm;
+  $('bSwap').disabled = !h || cm || (!ui.swap && S.bag.length < 1) || (ui.swap && !ui.swapSet.size);
+  $('bSwap').textContent = ui.swap && ui.swapSet.size ? `Swap ${ui.swapSet.size}` : 'Swap';
+  $('bPass').disabled = !h || cm;
+  $('bPass').textContent = ui.swap ? 'Cancel' : 'Pass';
+  $('bHint').disabled = !h || ui.swap || cm;
+  $('bWb').hidden = pz;
+  $('bWb').disabled = !h || ui.swap;
+  $('bWb').textContent = ui.circSel.length ? `Workbench · ${ui.circSel.map(k => S.board[k]).join('')}` : 'Workbench';
+  $('bNew').disabled = ui.thinking;
+  $('logPanel').hidden = pz;
+  renderPreview(); if (!pz) renderLog(); renderModal(); renderWB();
+}
+function renderPreview() {
+  const el = $('preview');
+  if (isPz()) {
+    const P = S.puzzle;
+    $('pvTitle').textContent = P.solved ? 'Solved' : 'Puzzle';
+    const meter = P.history.length ? `<div class="meter" aria-label="Check history">${P.history.map(h => `<span class="${h}" title="${h === 'o' ? 'Solved' : h === 'r' ? 'Revealed a tile' : 'Check with wrong lines'}"></span>`).join('')}</div>` : '';
+    el.innerHTML = P.solved
+      ? `<p>${fmtTime(P.elapsed)} · ${P.checks} check${P.checks === 1 ? '' : 's'}${P.reveals ? ` · ${P.reveals} reveal${P.reveals === 1 ? '' : 's'}` : ''}</p>${meter}<div class="row-end" style="margin-top:10px"><button class="btn" id="pvShare">Show result</button></div>`
+      : `<p class="empty">Place all ${S.puzzle.holes.length} tiles so every line across and down is a true equation, then press Check. ${openHoles().length - ui.pending.length} square${openHoles().length - ui.pending.length === 1 ? '' : 's'} left to fill.</p>${meter}`;
+    const b = $('pvShare'); if (b) b.addEventListener('click', () => { S.modal = null; render(); });
+    return;
+  }
+  $('pvTitle').textContent = 'This play';
+  if (!ui.pending.length) { el.innerHTML = `<p class="empty">Place tiles to see the equations they make and what they score.</p>`; return; }
+  const res = evaluate(S.board, ui.pending);
+  if (!res.runs.length) { el.innerHTML = `<p class="empty">${res.msg}</p>`; return; }
+  el.innerHTML = res.runs.map(r => `<div class="prow"><div><div class="digits">${r.s}</div>${r.eq ? eqHTML(r.eq.parts) : `<div class="why">${r.err}</div>`}</div><span class="pts">${r.eq ? '+' + r.score : '✗'}</span></div>`).join('')
+    + (res.ok ? `${res.bingo ? `<div class="prow"><div>All 7 tiles</div><span class="pts">+${BINGO}</span></div>` : ''}<div class="ptotal"><span>Total</span><span class="v">${res.total}</span></div>` : `<p class="empty" style="margin-top:6px">${res.msg}</p>`);
+}
+function renderLog() {
+  $('log').innerHTML = S.log.length ? S.log.slice(0, 40).map(e => `<li><span class="who">${esc(S.players[e.who].name)}</span>${e.note ? `<span>${e.note}</span>` : e.eqs.map(eqHTML).join('') + (e.bingo ? `<span class="who">All 7 tiles +${BINGO}</span>` : '')}<span class="pts">${e.pts > 0 ? '+' + e.pts : e.pts < 0 ? '−' + Math.abs(e.pts) : '0'}</span></li>`).join('')
+    : `<li><span class="empty">No plays yet.</span></li>`;
+}
+function untilMidnight() { const d = new Date(), m = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1); const s = (m - d) / 1000; return `${Math.floor(s / 3600)}h ${Math.floor(s % 3600 / 60)}m`; }
+function renderModal() {
+  const ov = $('overlay'), m = $('modal');
+  let html = '';
+  const pz = isPz();
+  if (S.modal === 'new') {
+    const mode = ui.joinCode ? 'online' : S.mode;
+    const lvl = S.level || 'medium';
+    const done = dailyRecords()[todayId()];
+    html = `<h2>New game</h2>
+      <div class="sub"><span class="lbl">Game type</span>
+      <div class="seg" role="radiogroup" aria-label="Game type">
+        <label><input type="radio" name="mode" id="mAi" value="ai" ${mode === 'ai' ? 'checked' : ''}>Vs computer</label>
+        <label><input type="radio" name="mode" id="mPp" value="pp" ${mode === 'pp' ? 'checked' : ''}>Vs a person<small>pass and play</small></label>
+        <label><input type="radio" name="mode" id="mPz" value="puzzle" ${mode === 'puzzle' ? 'checked' : ''}>Puzzle</label>
+        <label><input type="radio" name="mode" id="mOn" value="online" ${mode === 'online' ? 'checked' : ''}>Online<small>vs a friend</small></label>
+      </div></div>
+      <div class="sub" id="secOn">
+        <div class="seg" role="radiogroup" aria-label="Online game">
+          <label><input type="radio" name="ok" id="okNew" value="create" ${ui.joinCode ? '' : 'checked'}>Start a game<small>get a code to share</small></label>
+          <label><input type="radio" name="ok" id="okJoin" value="join" ${ui.joinCode ? 'checked' : ''}>Join a game<small>enter their code</small></label>
+        </div>
+        <label class="field">Your name<input id="nOn" value="" placeholder="Your name" maxlength="24"></label>
+        <label class="field" id="fCode">Game code<input id="cOn" value="${esc(ui.joinCode || '')}" placeholder="6 letters and numbers" maxlength="6" autocapitalize="characters" autocomplete="off"></label>
+      </div>
+      <div class="sub" id="secAi"><span class="lbl">Computer difficulty</span>
+        <div class="seg" role="radiogroup" aria-label="Difficulty">
+          ${['easy', 'medium', 'hard'].map(l => `<label><input type="radio" name="lvl" id="lv-${l}" value="${l}" ${lvl === l ? 'checked' : ''}>${LEVELS[l].label}<small>${l === 'easy' ? 'short, safe plays' : l === 'medium' ? 'solid plays' : 'goes for max points'}</small></label>`).join('')}
+        </div>
+        <label class="field">Your name<input id="n1a" value="" placeholder="You"></label>
+      </div>
+      <div class="sub" id="secPp">
+        <label class="field">Player 1 name<input id="n1" value="${S.mode === 'pp' ? esc(S.players[0].name) : ''}" placeholder="Player 1"></label>
+        <label class="field">Player 2 name<input id="n2" value="${S.mode === 'pp' ? esc(S.players[1].name) : ''}" placeholder="Player 2"></label>
+      </div>
+      <div class="sub" id="secPz"><span class="lbl">Which puzzle</span>
+        <div class="seg" role="radiogroup" aria-label="Puzzle">
+          <label><input type="radio" name="pk" id="pkD" value="daily" checked>Daily #${todayId()}<small>${done && done.solved ? 'solved today' : 'same for everyone'}</small></label>
+          <label><input type="radio" name="pk" id="pkR" value="random">Random<small>a fresh one</small></label>
+        </div>
+        <div class="seg" id="pzLvl" role="radiogroup" aria-label="Puzzle size">
+          ${['easy', 'medium', 'hard'].map(l => `<label><input type="radio" name="plv" id="pl-${l}" value="${l}" ${l === 'medium' ? 'checked' : ''}>${LEVELS[l].label}<small>${LEVELS[l].holes} tiles</small></label>`).join('')}
+        </div>
+      </div>
+      ${ui.err && ui.msg ? `<p class="msg bad">${esc(ui.msg)}</p>` : ''}
+      <div class="row-end"><button class="btn" id="mCancel">Cancel</button><button class="btn primary" id="mStart">Start</button></div>`;
+  } else if (S.modal === 'invite' && isOn()) {
+    html = `<h2>Game ready</h2>
+      <div class="invite"><p>Send this code to the person you want to play. They choose New game, then Online, then Join a game.</p>
+      <span class="code" id="invCode">${S.online.code}</span>
+      <p>Or send them this link, which opens the join screen with the code filled in:</p>
+      <pre class="share" id="shareTxt">${esc(inviteLink())}</pre></div>
+      <div class="row-end"><button class="btn" id="mCopy">Copy link</button><button class="btn primary" id="mLook">Go to the board</button></div>`;
+  } else if (pz && S.puzzle.solved && S.modal !== 'closed') {
+    const P = S.puzzle;
+    html = `<h2>Solved!</h2>
+      <pre class="share" id="shareTxt">${esc(shareText())}</pre>
+      ${P.kind === 'daily' ? `<p>Next daily puzzle in ${untilMidnight()}.</p>` : ''}
+      <div class="row-end"><button class="btn" id="mLook">See the board</button><button class="btn" id="mCopy">Copy result</button><button class="btn primary" id="mAgain">New game</button></div>`;
+  } else if (S.over && S.modal !== 'closed') {
+    const ranked = S.players.slice().sort((a, b) => b.score - a.score);
+    const tie = ranked[0].score === ranked[1].score;
+    html = `<h2>${tie ? 'It’s a tie' : esc(ranked[0].name) + (ranked[0].name === 'You' ? ' win' : ' wins')}</h2>
+      <div class="final">${S.players.map(p => `<div><span>${esc(p.name)}</span><span>${p.score}</span></div>`).join('')}</div>
+      <p>${S.outIdx != null ? `${esc(S.players[S.outIdx].name)} played out and collected the other rack’s points.` : 'Six scoreless turns in a row ended the game.'} Leftover tiles were subtracted.</p>
+      <div class="row-end"><button class="btn" id="mLook">See the board</button><button class="btn primary" id="mAgain">Play again</button></div>`;
+  } else if (!pz && S.handoff && !S.over) {
+    html = `<h2>${esc(cur().name)}, you’re up</h2><p>Pass the device, then show your tiles.</p>
+      <div class="row-end"><button class="btn primary" id="mReady">Show my tiles</button></div>`;
+  }
+  ov.hidden = !html;
+  if (!html) { m.innerHTML = ''; m.dataset.sig = ''; return; }
+  if (m.dataset.sig === html) return;
+  m.dataset.sig = html; m.innerHTML = html;
+  const on = (id, f) => { const b = $(id); if (b) b.addEventListener('click', f); };
+  on('mCancel', () => { ui.joinCode = ''; if (ui.err) { ui.msg = ''; ui.err = false; } S.modal = (S.over || (isPz() && S.puzzle.solved)) ? 'closed' : null; render(); });
+  on('mStart', () => {
+    const mode = m.querySelector('input[name=mode]:checked').value;
+    if (mode === 'online') {
+      const join = $('okJoin').checked, name = $('nOn').value.trim(), code = $('cOn').value.trim().toUpperCase();
+      if (join && code.length !== 6) { ui.msg = 'Enter the 6-character game code.'; ui.err = true; m.dataset.sig = ''; return render(); }
+      ui.joinCode = ''; try { history.replaceState(null, '', location.pathname); } catch (e) {}
+      if (S) S.modal = null;
+      return startOnline(join ? 'join' : 'create', name, code);
+    }
+    if (mode === 'puzzle') {
+      const kind = $('pkR').checked ? 'random' : 'daily';
+      newPuzzle(kind, m.querySelector('input[name=plv]:checked').value);
+    } else if (mode === 'ai') newGame({ mode, level: m.querySelector('input[name=lvl]:checked').value, p1: $('n1a').value.trim() });
+    else newGame({ mode, p1: $('n1').value.trim(), p2: $('n2').value.trim() });
+  });
+  on('mAgain', () => { S.modal = 'new'; render(); });
+  on('mLook', () => { S.modal = S.modal === 'invite' ? null : 'closed'; render(); });
+  on('mReady', () => { S.handoff = false; save(); render(); });
+  on('mCopy', e => {
+    const txt = S.modal === 'invite' ? inviteLink() : shareText(), btn = e.currentTarget;
+    const sel = () => { const r = document.createRange(); r.selectNodeContents($('shareTxt')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); btn.textContent = 'Selected, copy it'; };
+    try { navigator.clipboard.writeText(txt).then(() => { btn.textContent = 'Copied'; }, sel); } catch (err) { sel(); }
+  });
+  const sync = () => {
+    const mode = m.querySelector('input[name=mode]:checked'); if (!mode) return;
+    $('secAi').hidden = mode.value !== 'ai'; $('secPp').hidden = mode.value !== 'pp'; $('secPz').hidden = mode.value !== 'puzzle';
+    $('pzLvl').hidden = !$('pkR').checked;
+    $('secOn').hidden = mode.value !== 'online'; $('fCode').hidden = !$('okJoin').checked;
+  };
+  m.querySelectorAll('input[type=radio]').forEach(i => i.addEventListener('change', sync));
+  if ($('secAi')) sync();
+  const first = m.querySelector('.primary'); if (first) first.focus();
+}
+
+/* ---------- input ---------- */
+function onRack(i) {
+  if (!humanTurn()) return;
+  ui.msg = ''; ui.err = false;
+  if (ui.swap) { ui.swapSet.has(i) ? ui.swapSet.delete(i) : ui.swapSet.add(i); }
+  else ui.sel = ui.sel === i ? null : i;
+  render();
+}
+function canPlace(k) { return S.board[k] == null && (!isPz() || S.puzzle.holes.includes(k)); }
+function placeAt(k, ri) { ui.pending.push({ k, d: cur().rack[ri], ri }); ui.sel = null; ui.msg = ''; ui.err = false; ui.bad = null; }
+function onCell(k, e) {
+  if (!humanTurn() || ui.swap) return;
+  if (S.board[k] != null && !isPz()) { if (e && e.detail === 0) tapSelect(k); return; }
+  const pi = ui.pending.findIndex(t => t.k === k);
+  if (pi >= 0) {
+    const t = ui.pending.splice(pi, 1)[0];
+    if (ui.sel != null) placeAt(k, ui.sel); else ui.sel = isPz() ? t.ri : null;
+    ui.msg = ''; ui.bad = null; render(); return;
+  }
+  if (!canPlace(k)) return;
+  if (ui.sel == null) {
+    if (isPz()) { const used = new Set(ui.pending.map(t => t.ri)); const ri = cur().rack.findIndex((_, i) => !used.has(i)); if (ri < 0) return; }
+    ui.msg = 'Pick a tile from your rack first.'; ui.err = false; render(); return;
+  }
+  placeAt(k, ui.sel); render();
+}
+function onCellKey(e, k) {
+  const r = Math.floor(k / N), c = k % N;
+  const mv = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key];
+  if (mv) { const nr = r + mv[0], nc = c + mv[1]; if (nr >= 0 && nr < N && nc >= 0 && nc < N) { cells[nr * N + nc].focus(); e.preventDefault(); } return; }
+  if (!humanTurn() || ui.swap) return;
+  if (/^[0-9]$/.test(e.key) && canPlace(k) && !ui.pending.some(t => t.k === k)) {
+    const used = new Set(ui.pending.map(t => t.ri));
+    const ri = cur().rack.findIndex((d, i) => d === +e.key && !used.has(i));
+    if (ri < 0) { ui.msg = `You don’t have a ${e.key} left.`; ui.err = true; render(); return; }
+    const vert = ui.pending.length && ui.pending.every(t => t.k % N === c) && !ui.pending.every(t => Math.floor(t.k / N) === r);
+    placeAt(k, ri); render();
+    let nk = vert ? k + N : k + 1;
+    while (nk < N * N && (vert || nk % N !== 0) && !canPlace(nk)) nk += vert ? N : 1;
+    if (nk < N * N && (vert || nk % N !== 0)) cells[nk].focus(); else cells[k].focus();
+    e.preventDefault();
+  } else if (e.key === 'Backspace' || e.key === 'Delete') {
+    const pi = ui.pending.findIndex(t => t.k === k);
+    if (pi >= 0) { ui.pending.splice(pi, 1); ui.bad = null; render(); cells[k].focus(); }
+  } else if (e.key === 'Enter' && ui.pending.length) { e.preventDefault(); $('bPlay').click(); }
+}
+$('bPlay').addEventListener('click', () => {
+  if (!humanTurn()) return;
+  if (isPz()) return checkPuzzle();
+  const res = evaluate(S.board, ui.pending);
+  if (!res.ok) { ui.msg = res.msg || 'That play doesn’t work.'; ui.err = true; render(); return; }
+  if (isOn()) return onlineAction({ action: 'play', placements: ui.pending.map(t => ({ k: t.k, d: t.d })) }, v => `You scored ${v.scored}.`);
+  commitPlay(ui.pending.slice(), res);
+});
+$('bRecall').addEventListener('click', () => { ui.pending = []; ui.msg = ''; ui.err = false; ui.bad = null; render(); });
+$('bShuffle').addEventListener('click', () => {
+  if (!humanTurn()) return;
+  ui.pending = []; ui.sel = null; ui.bad = null; shuffle(cur().rack); save(); render();
+});
+$('bSwap').addEventListener('click', () => {
+  if (!humanTurn()) return;
+  if (!ui.swap) { ui.pending = []; ui.sel = null; ui.swap = true; ui.msg = ''; render(); return; }
+  if (S.bag.length < ui.swapSet.size) { ui.msg = `Only ${S.bag.length} tiles left in the bag.`; ui.err = true; render(); return; }
+  if (isOn()) return onlineAction({ action: 'swap', digits: [...ui.swapSet].map(i => me().rack[i]) }, () => 'Swapped.');
+  doSwap([...ui.swapSet]);
+});
+$('bPass').addEventListener('click', () => {
+  if (!humanTurn()) return;
+  if (ui.swap) { ui.swap = false; ui.swapSet.clear(); render(); return; }
+  if (isOn()) return onlineAction({ action: 'pass' }, () => 'You passed.');
+  scoreless('Passed');
+});
+$('bHint').addEventListener('click', async () => {
+  if (!humanTurn()) return;
+  if (isPz()) return revealTile();
+  if (S.hint) { // one hint per turn: re-show the same move for free
+    const used = new Set();
+    ui.pending = S.hint.map(t => { const ri = cur().rack.findIndex((d, i) => d === t.d && !used.has(i)); used.add(ri); return { k: t.k, d: t.d, ri }; });
+    ui.sel = null; ui.msg = 'Here’s your hint again. No extra charge, and there’s one hint per turn.'; ui.err = false;
+    return render();
+  }
+  const game = S;
+  ui.pending = []; ui.sel = null; ui.thinking = true; render();
+  const best = pickMove(await search(S.board, cur().rack, { maxLen: 7, budget: 1500 }), 'hard');
+  ui.thinking = false;
+  if (S !== game) return render();
+  if (best) {
+    const p = cur(), rate = hintRate(p), cost = Math.ceil(best.total * rate);
+    p.score -= cost; p.hints = (p.hints || 0) + 1; S.hint = best.pl.map(t => ({ k: t.k, d: t.d }));
+    S.log.unshift({ who: S.turn, note: `Used a hint (${Math.round(rate * 100)}%)`, pts: -cost });
+    save();
+    const left = HINT_DISCOUNTED - p.hints;
+    ui.pending = best.pl; ui.msg = `Here’s a ${best.total}-point move. The hint cost ${cost} points.${rate < 1 ? (left > 0 ? ` ${left} discounted hint${left === 1 ? '' : 's'} left.` : ' Hints cost 100% from now on.') : ''} Press Play to use it, or Recall to try your own.`; ui.err = false;
+  }
+  else { ui.msg = 'No play found with these tiles. Try swapping.'; ui.err = true; }
+  render();
+});
+$('bNew').addEventListener('click', () => { if (ui.thinking) return; S.modal = 'new'; render(); });
+
+/* ---------- circle a line ---------- */
+const rc = k => [Math.floor(k / N), k % N];
+let drag = null;
+function rangeTo(a, b) {
+  const [ra, ca] = rc(a), [rb, cb] = rc(b);
+  const horiz = Math.abs(cb - ca) >= Math.abs(rb - ra);
+  const len = horiz ? Math.abs(cb - ca) : Math.abs(rb - ra);
+  const step = horiz ? Math.sign(cb - ca) : Math.sign(rb - ra) * N;
+  const out = [a];
+  for (let i = 1; i <= len; i++) { const k = a + step * i; if (S.board[k] == null) break; out.push(k); }
+  return out.sort((x, y) => x - y);
+}
+function tapSelect(k) {
+  if (S.board[k] == null) return;
+  const s = ui.circSel;
+  if (s.length === 1 && s[0] === k) { ui.circSel = []; return render(); }
+  if (s.length === 1 && s[0] !== k) {
+    const [r1, c1] = rc(s[0]), [r2, c2] = rc(k);
+    if (r1 === r2 || c1 === c2) { const r = rangeTo(s[0], k); if (r.includes(k)) { ui.circSel = r; return render(); } }
+  }
+  ui.circSel = [k]; ui.msg = ''; ui.err = false; render();
+}
+function cellAt(x, y) { const el = document.elementFromPoint(x, y); const c = el && el.closest && el.closest('.cell'); return c ? +c.dataset.k : null; }
+boardEl.addEventListener('pointerdown', e => {
+  if (!humanTurn() || ui.swap || isPz()) return;
+  const k = cellAt(e.clientX, e.clientY);
+  if (k == null || S.board[k] == null) return;
+  drag = { anchor: k, moved: false, key: '' };
+  try { boardEl.setPointerCapture(e.pointerId); } catch (err) {}
+  e.preventDefault();
+});
+boardEl.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const k = cellAt(e.clientX, e.clientY);
+  if (k == null || (k === drag.anchor && !drag.moved)) return;
+  drag.moved = true;
+  const sel = rangeTo(drag.anchor, k), key = sel.join(',');
+  if (key !== drag.key) { drag.key = key; ui.circSel = sel; render(); }
+});
+boardEl.addEventListener('pointerup', () => { if (!drag) return; const d = drag; drag = null; if (!d.moved) tapSelect(d.anchor); });
+boardEl.addEventListener('pointercancel', () => { drag = null; });
+$('bWb').addEventListener('click', wbOpen);
+
+/* ---------- workbench ---------- */
+const where = (r, c) => `row ${r + 1}, column ${c + 1}`;
+const fmtN = v => v < 0 ? '−' + Math.abs(v) : String(v);
+function wbOpen() {
+  if (!humanTurn()) return;
+  ui.pending = []; ui.sel = null; ui.bad = null; ui.msg = '';
+  const base = ui.circSel.slice();
+  let dirs;
+  if (!base.length) dirs = ['h'];
+  else if (base.length > 1) dirs = [base[1] - base[0] === 1 ? 'h' : 'v'];
+  else {
+    const [r, c] = rc(base[0]);
+    const inH = get(S.board, null, r, c - 1) != null || get(S.board, null, r, c + 1) != null;
+    const inV = get(S.board, null, r - 1, c) != null || get(S.board, null, r + 1, c) != null;
+    const d = inH && !inV ? 'v' : 'h';
+    dirs = [d, d === 'h' ? 'v' : 'h'];
+  }
+  ui.wb = { base, dirs, items: [] };
+  render();
+  setTimeout(() => { const b = $('wbSheet').querySelector('.ptiles button'); if (b) b.focus(); }, 0);
+}
+function wbClose() { ui.wb = null; ui.circSel = []; ui.wbPlace = null; render(); }
+function fits(dir, before, after) {
+  const base = ui.wb.base, first = base[0], last = base[base.length - 1];
+  const [dr, dc] = dir === 'h' ? [0, 1] : [1, 0];
+  const [fr, fc] = rc(first), [lr, lc] = rc(last);
+  const cellsB = [], cellsA = [];
+  for (let i = before; i >= 1; i--) {
+    const r = fr - dr * i, c = fc - dc * i;
+    if (r < 0 || c < 0) return { ok: false, msg: 'No room before the base line: it runs off the edge of the board.' };
+    if (S.board[r * N + c] != null) return { ok: false, msg: `No room before the base line: ${where(r, c)} is taken.` };
+    cellsB.push(r * N + c);
+  }
+  for (let i = 1; i <= after; i++) {
+    const r = lr + dr * i, c = lc + dc * i;
+    if (r >= N || c >= N) return { ok: false, msg: 'No room after the base line: it runs off the edge of the board.' };
+    if (S.board[r * N + c] != null) return { ok: false, msg: `No room after the base line: ${where(r, c)} is taken.` };
+    cellsA.push(r * N + c);
+  }
+  const br = fr - dr * (before + 1), bc = fc - dc * (before + 1), ar = lr + dr * (after + 1), ac = lc + dc * (after + 1);
+  const longer = 'The base tiles are part of a longer line on the board. Select the whole line.';
+  if (get(S.board, null, br, bc) != null) return { ok: false, msg: before ? `Your tiles would touch the tile at ${where(br, bc)}.` : longer };
+  if (get(S.board, null, ar, ac) != null) return { ok: false, msg: after ? `Your tiles would touch the tile at ${where(ar, ac)}.` : longer };
+  for (const k of [...cellsB, ...cellsA]) {
+    const [r, c] = rc(k);
+    const side = dir === 'h' ? [[r - 1, c], [r + 1, c]] : [[r, c - 1], [r, c + 1]];
+    for (const [x, y] of side) if (get(S.board, null, x, y) != null) return { ok: false, msg: `Your tile at ${where(r, c)} would touch the tile at ${where(x, y)}.` };
+  }
+  return { ok: true, cellsB, cellsA };
+}
+function calc(X, op, Y) {
+  if (op === '+') return { val: X + Y };
+  if (op === '−') return { val: X - Y };
+  if (op === '×') return { val: X * Y };
+  if (Y === 0) return { err: 'can’t be worked out: you can’t divide by 0' };
+  if (X % Y !== 0) return { err: `doesn’t divide evenly (${(X / Y).toFixed(2).replace(/0+$/, '')}…)` };
+  return { val: X / Y };
+}
+function tricks(X, op, Y, say) {
+  const ban = op === '+' && (X === 0 || Y === 0) ? 'adding 0' : op === '−' && Y === 0 ? 'subtracting 0'
+    : op === '×' && (X === 0 || Y === 0) ? 'multiplying by 0' : op === '÷' && X === 0 ? 'dividing 0' : null;
+  if (ban) say('bad', `Not allowed: ${ban} doesn’t count.`);
+  const weak = op === '×' && (X === 1 || Y === 1) ? 'multiplying by 1' : op === '÷' && Y === 1 ? 'dividing by 1' : null;
+  if (weak) say('warn', `Allowed, but ${weak} is a weak play.`);
+}
+function wbDigit(x) { return x.t === 'c' ? S.board[ui.wb.base[x.i]] : cur().rack[x.i]; }
+function mathCheck() {
+  const toks = [];
+  for (const x of ui.wb.items) {
+    if (x.t === 'op') toks.push({ op: x.v });
+    else { const d = String(wbDigit(x)), last = toks[toks.length - 1]; if (last && last.n != null) last.n += d; else toks.push({ n: d }); }
+  }
+  const r = { expr: toks.map(t => t.n ?? t.op).join(' '), lines: [] };
+  const say = (kind, text) => r.lines.push({ kind, text });
+  if (!toks.length) { say('info', 'Tap tiles and keys to build an equation.'); return r; }
+  if (toks[0].op) { say('bad', 'Start with a number.'); return r; }
+  for (let i = 1; i < toks.length; i++) if (toks[i].op && toks[i - 1].op) { say('bad', 'Two symbols in a row. Put a number between them.'); return r; }
+  const lead = toks.find(t => t.n && t.n.length > 1 && t.n[0] === '0');
+  if (lead) say('bad', `Numbers can’t start with 0: ${lead.n}.`);
+  if (toks[toks.length - 1].op) { say('info', 'Keep going.'); return r; }
+  const ops = toks.filter(t => t.op && t.op !== '=').length, eqn = toks.filter(t => t.op === '=').length;
+  if (!ops && !eqn) { say('info', 'Just a number so far. Add an operator.'); return r; }
+  if (ops !== 1 || eqn > 1) { say('bad', 'Use exactly one operator and one equals sign.'); return r; }
+  if (!eqn) {
+    const xs = toks[0].n, op = toks[1].op, ys = toks[2].n, X = +xs, Y = +ys, v = calc(X, op, Y);
+    if (v.err) say('bad', `${xs} ${op} ${ys} ${v.err}.`);
+    else if (v.val < 0) say('bad', `${xs} ${op} ${ys} comes to ${fmtN(v.val)}. Results can’t be negative.`);
+    else say('ok', `${xs} ${op} ${ys} comes to ${v.val}.`);
+    tricks(X, op, Y, say);
+    say('info', 'Add = and the answer to make it an equation.');
+    return r;
+  }
+  let xs, op, ys, zs;
+  if (toks.length === 5 && toks[3].op === '=') { xs = toks[0].n; op = toks[1].op; ys = toks[2].n; zs = toks[4].n; }
+  else if (toks.length === 5 && toks[1].op === '=') { zs = toks[0].n; xs = toks[2].n; op = toks[3].op; ys = toks[4].n; }
+  else { say('bad', 'Use exactly one operator and one equals sign.'); return r; }
+  const X = +xs, Y = +ys, Z = +zs, v = calc(X, op, Y);
+  if (v.err) say('bad', `✗ ${xs} ${op} ${ys} ${v.err}.`);
+  else if (v.val < 0) say('bad', `✗ ${xs} ${op} ${ys} is ${fmtN(v.val)}. Results can’t be negative.`);
+  else if (v.val === Z) say('ok', `✓ ${xs} ${op} ${ys} is ${zs}. It works.`);
+  else say('bad', `✗ ${xs} ${op} ${ys} is ${v.val}, not ${zs}.`);
+  tricks(X, op, Y, say);
+  return r;
+}
+function stringCheck() {
+  const wb = ui.wb, m = wb.base.length;
+  const s = { lines: [], readings: [], score: null, place: null, digits: '' };
+  const say = (kind, text) => s.lines.push({ kind, text });
+  const digs = wb.items.filter(x => x.t !== 'op').map(x => ({ ...x, d: wbDigit(x) }));
+  if (!digs.length) { say('info', 'Tap tiles to build a digit string. Operators don’t matter here, only the order of the digits.'); return s; }
+  s.digits = digs.map(x => x.d).join('');
+  const cPos = digs.map((x, j) => x.t === 'c' ? j : -1).filter(j => j >= 0);
+  const cOrd = cPos.map(j => digs[j].i);
+  for (let j = 1; j < cOrd.length; j++) if (cOrd[j] < cOrd[j - 1]) { say('bad', 'Not valid: the base tiles are out of order.'); return s; }
+  if (cPos.length) {
+    const mid = digs.slice(cPos[0], cPos[cPos.length - 1] + 1).find(x => x.t === 'r');
+    if (mid) { say('bad', `Not valid: your ${mid.d} sits between base tiles. Your tiles can only go before or after the base line.`); return s; }
+  }
+  if (!m) return noBaseCheck(s, digs, say);
+  if (cPos.length < m) { say('bad', `Uses ${cPos.length} of ${m} base tiles. They all stay on the board, so the string needs every one.`); return s; }
+  say('ok', m > 1 ? `All ${m} base tiles used, in order.` : 'The base tile is used.');
+  const eqs = findEqs(s.digits);
+  if (!eqs.length) { say('bad', `${s.digits} has no valid reading yet.`); return s; }
+  s.readings = eqs;
+  const before = cPos[0], after = digs.length - 1 - cPos[cPos.length - 1];
+  if (!before && !after) { say('info', 'Add at least one of your tiles before or after the base tiles.'); return s; }
+  let fit = null, fail = null;
+  for (const d of wb.dirs) { const f = fits(d, before, after); if (f.ok) { fit = { ...f, dir: d }; break; } if (!fail) fail = f; }
+  if (!fit) { say('bad', fail.msg); return s; }
+  const dn = d => d === 'h' ? 'across' : 'down';
+  if (wb.dirs.length > 1 && fit.dir !== wb.dirs[0]) say('info', `It didn’t fit going ${dn(wb.dirs[0])}, so it goes ${dn(fit.dir)}.`);
+  const mine = digs.filter(x => x.t === 'r');
+  const pl = [...fit.cellsB, ...fit.cellsA].map((k, j) => ({ k, d: mine[j].d, ri: mine[j].i }));
+  const res = evaluate(S.board, pl);
+  if (!res.ok) { say('bad', res.msg || 'The board won’t accept this play.'); return s; }
+  say('ok', `Fits on the board going ${dn(fit.dir)}.`);
+  s.score = res.total; s.bingo = res.bingo; s.place = pl;
+  return s;
+}
+function noBaseCheck(s, digs, say) {
+  const eqs = findEqs(s.digits);
+  if (!eqs.length) { say(digs.length < 3 ? 'info' : 'bad', digs.length < 3 ? 'An equation needs at least 3 digits.' : `${s.digits} has no valid reading yet.`); return s; }
+  s.readings = eqs;
+  if (S.board.some(x => x != null)) { say('info', 'To place it, close the Workbench and tap or drag tiles on the board to pick a base. You can still use this as scratch math.'); return s; }
+  const len = digs.length, start = MID - Math.floor((len - 1) / 2);
+  const pl = digs.map((x, j) => ({ k: MID * N + start + j, d: x.d, ri: x.i }));
+  const res = evaluate(S.board, pl);
+  if (!res.ok) { say('bad', res.msg || 'The board won’t accept this play.'); return s; }
+  say('ok', 'First play: goes across through the star.');
+  s.score = res.total; s.bingo = res.bingo; s.place = pl;
+  return s;
+}
+function renderWB() {
+  const back = $('wbBack');
+  if (ui.wb && !humanTurn()) ui.wb = null;
+  const open = !!ui.wb;
+  back.hidden = !open;
+  document.body.style.overflow = open ? 'hidden' : '';
+  if (!open) return;
+  const wb = ui.wb, rack = cur().rack, baseD = wb.base.map(k => S.board[k]);
+  const usedC = new Set(wb.items.filter(x => x.t === 'c').map(x => x.i)), usedR = new Set(wb.items.filter(x => x.t === 'r').map(x => x.i));
+  const dn = d => d === 'h' ? 'across' : 'down';
+  $('wbDir').textContent = !baseD.length ? (S.board.some(x => x != null) ? 'No base selected · scratch math' : 'No base needed · first play goes through the star') : `Base ${baseD.join('')} · ${wb.dirs.length > 1 ? `tries ${dn(wb.dirs[0])}, then ${dn(wb.dirs[1])}` : `goes ${dn(wb.dirs[0])}`}`;
+  $('wbBase').innerHTML = !baseD.length ? '<span class="msg info">None selected. Tap a tile on the board, or drag across a line of tiles, to pick a base.</span>' : baseD.map((d, i) => usedC.has(i) ? '<span class="wt slot" aria-hidden="true"></span>' : `<button class="wt circ" data-c="${i}" aria-label="Base tile ${d}">${d}</button>`).join('');
+  $('wbMine').innerHTML = rack.length ? rack.map((d, i) => usedR.has(i) ? '<span class="wt slot" aria-hidden="true"></span>' : `<button class="wt mine" data-r="${i}" aria-label="Your tile ${d}">${d}</button>`).join('') : '<span class="msg info">No tiles left.</span>';
+  $('wbScreen').innerHTML = wb.items.length ? wb.items.map((x, j) => x.t === 'op'
+      ? `<button class="sop" data-j="${j}" aria-label="Remove ${x.v}">${x.v}</button>`
+      : `<button class="wt sm ${x.t === 'c' ? 'circ' : 'mine'}" data-j="${j}" aria-label="Remove ${wbDigit(x)}">${wbDigit(x)}</button>`).join('')
+    : '<span class="ph">Tap tiles and keys below.</span>';
+  const line = l => `<p class="msg ${l.kind}">${esc(l.text)}</p>`;
+  const m = mathCheck();
+  $('wbMath').innerHTML = (m.expr ? `<p class="expr">${esc(m.expr)}</p>` : '') + m.lines.map(line).join('');
+  const s = stringCheck();
+  ui.wbPlace = s.place;
+  $('wbStr').innerHTML = (s.digits ? `<p class="expr">${s.digits}</p>` : '') + s.lines.map(line).join('')
+    + (s.readings.length ? `<div class="reads"><span class="msg info">The game can read it as:</span>${s.readings.slice(0, 6).map(e => eqHTML(e.parts)).join('')}${s.readings.length > 6 ? `<span class="msg info">and ${s.readings.length - 6} more</span>` : ''}</div>` : '')
+    + (s.score != null ? `<div class="wscore"><span>Would score${s.bingo ? ' (all 7 tiles)' : ''}</span><span class="v">${s.score}</span></div>` : '');
+  $('wbPlace').disabled = !s.place;
+}
+$('wbBase').addEventListener('click', e => { const b = e.target.closest('[data-c]'); if (!b || !ui.wb) return; ui.wb.items.push({ t: 'c', i: +b.dataset.c }); render(); });
+$('wbMine').addEventListener('click', e => { const b = e.target.closest('[data-r]'); if (!b || !ui.wb) return; ui.wb.items.push({ t: 'r', i: +b.dataset.r }); render(); });
+$('wbScreen').addEventListener('click', e => { const b = e.target.closest('[data-j]'); if (!b || !ui.wb) return; ui.wb.items.splice(+b.dataset.j, 1); render(); });
+$('wbKeys').addEventListener('click', e => {
+  const b = e.target.closest('[data-key]'); if (!b || !ui.wb) return;
+  const k = b.dataset.key;
+  if (k === 'back') ui.wb.items.pop(); else if (k === 'clear') ui.wb.items = []; else ui.wb.items.push({ t: 'op', v: k });
+  render();
+});
+$('wbClose').addEventListener('click', wbClose);
+$('wbBack').addEventListener('click', e => { if (e.target === $('wbBack')) wbClose(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && ui.wb) wbClose(); });
+$('wbPlace').addEventListener('click', () => {
+  const pl = ui.wbPlace; if (!pl || !humanTurn()) return;
+  ui.wb = null; ui.circSel = []; ui.wbPlace = null;
+  ui.pending = pl.map(p => ({ ...p }));
+  ui.msg = 'Placed from the workbench. Press Play to score it, or Recall to take it back.'; ui.err = false;
+  render();
+});
+
+/* ---------- boot ---------- */
+function start(data) {
+  const jm = /^#join-([A-Za-z0-9]{6})$/.exec(location.hash || '');
+  S = (data && data.S) || load();
+  if (jm && !(S && isOn() && S.online.code === jm[1].toUpperCase())) {
+    ui.joinCode = jm[1].toUpperCase();
+    if (!S) newGame({ mode: 'ai', level: 'medium' });
+    S.modal = 'new'; render();
+    return;
+  }
+  if (S && isOn()) { resetUI(); render(); listen(); refresh(); return; }
+  if (!S) return newGame({ mode: 'ai', level: 'medium' });
+  if (S.modal === 'new') S.modal = null;
+  resetUI();
+  if (data && data.pending) ui.pending = data.pending;
+  render(); maybeAI();
+}
+window.claude?.hot?.snapshot?.(() => ({ S, pending: ui.pending }));
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+})();
+</script>
+
+</body>
+</html>

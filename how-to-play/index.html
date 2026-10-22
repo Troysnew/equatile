@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>How to play Equatile</title>
+<meta name="description" content="The full rules of Equatile: how lines of digits are read as equations, placing tiles, scoring, online games and the daily puzzle.">
+<link rel="canonical" href="https://equatile.com/how-to-play/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Equatile">
+<meta property="og:title" content="How to play Equatile">
+<meta property="og:description" content="The full rules of Equatile: how lines of digits are read as equations, placing tiles, scoring, online games and the daily puzzle.">
+<meta property="og:url" content="https://equatile.com/how-to-play/">
+<meta property="og:image" content="https://equatile.com/assets/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#e3edd6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16251c" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@500;700;800&family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body data-page="how">
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="../" aria-label="Equatile home"><svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="12" fill="var(--tile)"/><rect x="4" y="50" width="56" height="10" rx="5" fill="var(--tile-edge)"/><rect x="4" y="44" width="56" height="10" fill="var(--tile)"/><rect x="17" y="22" width="30" height="6" rx="3" fill="var(--pencil)"/><rect x="17" y="34" width="30" height="6" rx="3" fill="var(--pencil)"/></svg><span>Equa<span class="eq">tile</span></span></a>
+    <nav class="nav" aria-label="Main"><a class="hide-sm" href="../how-to-play/" aria-current="page">How to play</a><a class="" href="../support/">Support</a><a class="btn primary" href="../play/">Play</a></nav>
+  </div>
+</header>
+<main id="main">
+
+<section class="doc-hero"><div class="wrap">
+  <span class="eyebrow">Rules</span>
+  <h1>How to play</h1>
+  <p>Everything you need to play Equatile, from your first move to the daily puzzle.</p>
+</div></section>
+<div class="wrap doc">
+  <nav class="toc" aria-label="On this page"><strong>On this page</strong>
+    <a href="#basics">The basics</a><a href="#reading">How lines are read</a><a href="#rules">Equation rules</a><a href="#placing">Placing tiles</a>
+    <a href="#scoring">Scoring</a><a href="#turns">Other turn options</a><a href="#ending">Ending the game</a><a href="#workbench">Workbench</a>
+    <a href="#online">Online games</a><a href="#puzzles">Puzzles</a>
+  </nav>
+  <article class="prose">
+    <h2 id="basics">The basics</h2>
+    <p>Each player draws 7 number tiles. On your turn, place one or more tiles in a single row or column, touching the tiles already on the board. Every line of touching tiles, across and down, has to read as a true equation.</p>
+    <p>You never place symbols. You only place digits, and the game works out where the operator and the equals sign go.</p>
+
+    <h2 id="reading">How lines are read</h2>
+    <div class="example">
+      <div class="tiles" aria-label="Tiles 9 empty 2"><span class="t">9<small>3</small></span><span class="t gap" aria-hidden="true"></span><span class="t">2<small>1</small></span></div>
+      <p>A 9 and a 2 sit on the board with an empty square between them.</p>
+    </div>
+    <div class="example">
+      <div class="tiles" aria-label="Tiles 9 7 2"><span class="t">9<small>3</small></span><span class="t new">7<small>3</small></span><span class="t">2<small>1</small></span></div>
+      <span class="eqline">9 <span class="op">−</span> 7 <span class="op">=</span> 2</span>
+      <p>Drop a 7 in the gap, and the line reads as 9 − 7 = 2.</p>
+    </div>
+    <div class="example">
+      <div class="tiles" aria-label="Tiles 9 7 2 6 7 1"><span class="t">9<small>3</small></span><span class="t">7<small>3</small></span><span class="t">2<small>1</small></span><span class="t new">6<small>2</small></span><span class="t new">7<small>3</small></span><span class="t new">1<small>1</small></span></div>
+      <span class="eqline">97 <span class="op">−</span> 26 <span class="op">=</span> 71</span>
+      <p>Add 6, 7 and 1, and the whole line is read again. Digits next to each other join into bigger numbers, so it now reads as 97 − 26 = 71.</p>
+    </div>
+
+    <h2 id="rules">Equation rules</h2>
+    <ul>
+      <li>Every equation has exactly one operator and one equals sign. Operators are <span class="num">+ − × ÷</span>.</li>
+      <li>The equals sign can come last or first. <span class="num">972</span> reads as <span class="num">9 − 7 = 2</span>, and <span class="num">297</span> reads as <span class="num">2 = 9 − 7</span>.</li>
+      <li>Lines are read left to right and top to bottom.</li>
+      <li>Adding 0, subtracting 0, multiplying by 0 and dividing 0 don’t count. Results of 0 are fine: <span class="num">7 − 7 = 0</span> works.</li>
+      <li>Division has to come out even, and results can’t be negative.</li>
+      <li>Numbers with more than one digit can’t start with 0.</li>
+      <li>Two tiles side by side can never be an equation, so every line of touching tiles needs at least 3.</li>
+    </ul>
+
+    <h2 id="placing">Placing tiles</h2>
+    <ul>
+      <li>All the tiles you place in a turn go in one row or one column, with no gaps between them. Tiles already on the board can sit between yours.</li>
+      <li>The first play of the game covers the star in the middle and uses at least 3 tiles.</li>
+      <li>After that, every play has to touch a tile that’s already on the board.</li>
+      <li>The second player starts with 8 tiles instead of 7, to make up for going second. After their first play, racks refill to 7.</li>
+    </ul>
+
+    <h2 id="scoring">Scoring</h2>
+    <p>Each line you make is scored separately, and the scores are added together. A line scores the points of every tile in it, including tiles that were already on the board.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Digits</th><th>Points each</th></tr></thead>
+      <tbody><tr><td class="num">1, 2, 3</td><td class="num">1</td></tr><tr><td class="num">4, 5, 6</td><td class="num">2</td></tr><tr><td class="num">7, 8, 9, 0</td><td class="num">3</td></tr></tbody>
+    </table></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Square</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><span class="sw" style="background:#cde0ef">2T</span></td><td>Doubles the points of the tile placed on it.</td></tr>
+        <tr><td><span class="sw" style="background:#8db3d6">3T</span></td><td>Triples the points of the tile placed on it.</td></tr>
+        <tr><td><span class="sw" style="background:#f3d1c8">2E</span></td><td>Doubles the whole equation.</td></tr>
+        <tr><td><span class="sw" style="background:#e2907e">3E</span></td><td>Triples the whole equation.</td></tr>
+      </tbody>
+    </table></div>
+    <ul>
+      <li>Premium squares only count on the turn a tile is placed on them.</li>
+      <li>Tile multipliers apply first, then equation multipliers.</li>
+      <li>An equation that uses × or ÷ earns <span class="num">+5</span>, added after multipliers.</li>
+      <li>Using all 7 tiles in one play earns <span class="num">+20</span>.</li>
+    </ul>
+    <p class="note">Example: you place a 7 between a 9 and a 2, and your 7 is on a 2E square. The line 9 − 7 = 2 scores (3 + 3 + 1) × 2 = 14 points.</p>
+
+    <h2 id="turns">Other turn options</h2>
+    <ul>
+      <li><strong>Swap:</strong> trade any of your tiles for new ones from the bag. It uses your turn and scores nothing.</li>
+      <li><strong>Pass:</strong> skip your turn.</li>
+      <li><strong>Show a move:</strong> the game places a move for you, but it costs points: 50% of that move’s score against the Easy computer, 75% against Medium, and 100% against Hard or another person. From your 4th hint in a game, every hint costs 100%. You get one hint per turn. Hints aren’t available in online games.</li>
+    </ul>
+
+    <h2 id="ending">Ending the game</h2>
+    <ul>
+      <li>The game ends when the bag is empty and a player uses their last tile, or after 6 scoreless turns in a row.</li>
+      <li>The points on any tiles left in your rack are subtracted from your score. A player who uses their last tile also collects the other player’s leftover points.</li>
+    </ul>
+
+    <h2 id="workbench">Workbench</h2>
+    <p>Tap a tile on the board, or drag across a line of tiles, to pick a base. Then open the Workbench. It shows your base tiles and your own tiles, plus calculator keys.</p>
+    <ul>
+      <li>Tap tiles and symbols to build an equation. The Workbench does the math as you go.</li>
+      <li>It checks that you used every base tile in order, with your tiles only before or after them, and that the play fits on the board.</li>
+      <li>When everything checks out, it shows the score and can place the tiles for you. You still press Play to score them.</li>
+      <li>With no base selected, it works as scratch math.</li>
+    </ul>
+
+    <h2 id="online">Online games</h2>
+    <ul>
+      <li>Choose <strong>New game</strong>, then <strong>Online</strong>, then <strong>Start a game</strong>. You get a 6-character code and a link to send.</li>
+      <li>Your friend chooses <strong>Join a game</strong> and enters the code, or opens your link.</li>
+      <li>Take turns whenever you like. The board updates when the other player moves.</li>
+      <li>Your game is saved on the device you started it on. Open Equatile on that device to pick it back up.</li>
+    </ul>
+
+    <h2 id="puzzles">Puzzles</h2>
+    <ul>
+      <li>A puzzle gives you a partly built board with outlined empty squares, and exactly the tiles needed to fill them.</li>
+      <li>Fill every outlined square so every line is true, then press <strong>Check</strong>. Lines that don’t work turn red.</li>
+      <li>Any arrangement that works counts.</li>
+      <li><strong>Reveal a tile</strong> places one correct tile for you and adds 30 seconds to your time.</li>
+      <li>The daily puzzle is the same for everyone and changes at midnight your time. Random puzzles come in Easy (5 tiles), Medium (8) and Hard (11).</li>
+    </ul>
+    <p><a class="btn primary" href="../play/">Play Equatile</a></p>
+  </article>
+</div>
+
+</main>
+<footer class="site-foot">
+  <div class="wrap">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <a class="brand" href="../"><svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="12" fill="var(--tile)"/><rect x="4" y="50" width="56" height="10" rx="5" fill="var(--tile-edge)"/><rect x="4" y="44" width="56" height="10" fill="var(--tile)"/><rect x="17" y="22" width="30" height="6" rx="3" fill="var(--pencil)"/><rect x="17" y="34" width="30" height="6" rx="3" fill="var(--pencil)"/></svg><span>Equa<span class="eq">tile</span></span></a>
+      <p class="fine">Every line is an equation.</p>
+    </div>
+    <nav class="foot-links" aria-label="Footer">
+      <a href="../play/">Play</a><a href="../how-to-play/">How to play</a><a href="../support/">Support</a><a href="../privacy/">Privacy</a><a href="../terms/">Terms</a>
+    </nav>
+    <p class="fine" style="flex-basis:100%">© 2026 Equatile. Questions? <a href="mailto:support@equatile.com">support@equatile.com</a></p>
+  </div>
+</footer>
+<script src="../assets/site.js" defer></script>
+</body>
+</html>
