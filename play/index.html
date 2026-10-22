@@ -563,6 +563,8 @@ async function newPuzzle(kind, level) {
 function resetUI() { ui.sel = null; ui.swap = false; ui.swapSet.clear(); ui.pending = []; ui.msg = ''; ui.err = false; ui.bad = null; ui.good = false; ui.circSel = []; ui.wb = null; ui.wbPlace = null; }
 const cur = () => S.players[S.turn];
 const me = () => isOn() ? S.players[S.online.seat] : cur();
+// Online players can plan (select, place tiles, use the Workbench) while waiting; only Play, Swap and Pass need their turn.
+const canPlan = () => humanTurn() || (isOn() && !S.over && !ui.thinking);
 function hintRate(p) { if ((p.hints || 0) >= HINT_DISCOUNTED || S.mode !== 'ai') return 1; return HINT_RATE[S.level] ?? 1; }
 const humanTurn = () => S && !S.over && !ui.thinking && (isPz() ? !S.puzzle.solved : isOn() ? S.online.status === 'active' && S.turn === S.online.seat : !cur().ai && !S.handoff);
 
@@ -606,13 +608,13 @@ async function maybeAI() {
   const game = S;
   ui.thinking = true; render();
   const t0 = performance.now(), L = LEVELS[S.level] || LEVELS.medium;
-  const moves = await search(S.board, cur().rack, { maxLen: L.maxLen, budget: L.budget });
+  const moves = await search(S.board, me().rack, { maxLen: L.maxLen, budget: L.budget });
   const best = pickMove(moves, S.level);
   const wait = 700 - (performance.now() - t0); if (wait > 0) await new Promise(r => setTimeout(r, wait));
   ui.thinking = false;
   if (S !== game) return render();
   if (best) commitPlay(best.pl, evaluate(S.board, best.pl));
-  else if (S.bag.length >= RACK) doSwap(cur().rack.map((_, i) => i));
+  else if (S.bag.length >= RACK) doSwap(me().rack.map((_, i) => i));
   else scoreless('Passed');
 }
 
@@ -635,7 +637,12 @@ function applyServer(v) {
   });
   S.over = v.status === 'over'; S.outIdx = v.outSeat;
   Object.assign(S.online, { status: v.status, version: v.version, seat: v.seat, code: v.code });
-  if (prevTurn !== null && prevTurn !== v.turn) { ui.pending = []; ui.sel = null; ui.circSel = []; }
+  if (prevTurn !== null && prevTurn !== v.turn) {
+    // Keep planned tiles that still sit on empty squares; drop any the opponent covered.
+    const before = ui.pending.length;
+    ui.pending = ui.pending.filter(t => S.board[t.k] == null && t.ri < v.rack.length && v.rack[t.ri] === t.d);
+    if (v.turn === v.seat && v.status === 'active') ui.msg = before && ui.pending.length < before ? 'Your turn. Some of your planned tiles were covered, so they went back to your rack.' : ui.pending.length ? 'Your turn. Your planned tiles are still on the board.' : '';
+  }
 }
 async function startOnline(kind, name, code) {
   ui.thinking = true; ui.msg = kind === 'create' ? 'Starting an online game…' : 'Joining the game…'; ui.err = false; render();
@@ -806,9 +813,10 @@ function render() {
     : S.over ? 'Game over.'
     : pz && S.puzzle.solved ? `Solved in ${fmtTime(S.puzzle.elapsed)}.`
     : ui.msg ? ui.msg
-    : isOn() && S.online.status === 'waiting' ? `Waiting for someone to join. Share code ${S.online.code}.`
-    : isOn() && S.turn !== S.online.seat ? `${esc(cur().name)} is taking their turn. Their move will show up here.`
     : ui.circSel.length && !pz ? `Base ${ui.circSel.map(k => S.board[k]).join('')} selected. Open the Workbench, tap another tile in line to extend it, or tap it again to clear.`
+    : isOn() && S.online.status === 'waiting' ? `Waiting for someone to join. Share code ${S.online.code}. You can plan your first move meanwhile.`
+    : isOn() && S.turn !== S.online.seat && ui.pending.length ? `Planning ahead. You can play this once ${esc(cur().name)} finishes their turn.`
+    : isOn() && S.turn !== S.online.seat ? `${esc(cur().name)} is taking their turn. You can plan your next move meanwhile.`
     : ui.swap ? 'Pick the tiles you want to swap, then press Swap again.'
     : pz ? 'Tap a tile, then an outlined square.'
     : isOn() ? 'Your turn. Tap a tile, then a square.'
@@ -820,15 +828,16 @@ function render() {
   $('bHint').textContent = pz ? `Reveal a tile (+${REVEAL_SECS}s)` : S.hint ? 'Show my hint again' : `Show a move (−${Math.round(hintRate(cur()) * 100)}%)`;
   const cm = false;
   $('bPlay').disabled = !h || ui.swap || cm || !ui.pending.length;
-  $('bRecall').disabled = !h || cm || !ui.pending.length;
-  $('bShuffle').disabled = !h || ui.swap || cm;
+  const plan = canPlan();
+  $('bRecall').disabled = !plan || !ui.pending.length;
+  $('bShuffle').disabled = !plan || ui.swap;
   $('bSwap').disabled = !h || cm || (!ui.swap && S.bag.length < 1) || (ui.swap && !ui.swapSet.size);
   $('bSwap').textContent = ui.swap && ui.swapSet.size ? `Swap ${ui.swapSet.size}` : 'Swap';
   $('bPass').disabled = !h || cm;
   $('bPass').textContent = ui.swap ? 'Cancel' : 'Pass';
   $('bHint').disabled = !h || ui.swap || cm;
   $('bWb').hidden = pz;
-  $('bWb').disabled = !h || ui.swap;
+  $('bWb').disabled = !plan || ui.swap;
   $('bWb').textContent = ui.circSel.length ? `Workbench · ${ui.circSel.map(k => S.board[k]).join('')}` : 'Workbench';
   $('bNew').disabled = ui.thinking;
   $('logPanel').hidden = pz;
@@ -969,16 +978,16 @@ function renderModal() {
 
 /* ---------- input ---------- */
 function onRack(i) {
-  if (!humanTurn()) return;
+  if (!canPlan()) return;
   ui.msg = ''; ui.err = false;
   if (ui.swap) { ui.swapSet.has(i) ? ui.swapSet.delete(i) : ui.swapSet.add(i); }
   else ui.sel = ui.sel === i ? null : i;
   render();
 }
 function canPlace(k) { return S.board[k] == null && (!isPz() || S.puzzle.holes.includes(k)); }
-function placeAt(k, ri) { ui.pending.push({ k, d: cur().rack[ri], ri }); ui.sel = null; ui.msg = ''; ui.err = false; ui.bad = null; }
+function placeAt(k, ri) { ui.pending.push({ k, d: me().rack[ri], ri }); ui.sel = null; ui.msg = ''; ui.err = false; ui.bad = null; }
 function onCell(k, e) {
-  if (!humanTurn() || ui.swap) return;
+  if (!canPlan() || ui.swap) return;
   if (S.board[k] != null && !isPz()) { if (e && e.detail === 0) tapSelect(k); return; }
   const pi = ui.pending.findIndex(t => t.k === k);
   if (pi >= 0) {
@@ -988,7 +997,7 @@ function onCell(k, e) {
   }
   if (!canPlace(k)) return;
   if (ui.sel == null) {
-    if (isPz()) { const used = new Set(ui.pending.map(t => t.ri)); const ri = cur().rack.findIndex((_, i) => !used.has(i)); if (ri < 0) return; }
+    if (isPz()) { const used = new Set(ui.pending.map(t => t.ri)); const ri = me().rack.findIndex((_, i) => !used.has(i)); if (ri < 0) return; }
     ui.msg = 'Pick a tile from your rack first.'; ui.err = false; render(); return;
   }
   placeAt(k, ui.sel); render();
@@ -997,10 +1006,10 @@ function onCellKey(e, k) {
   const r = Math.floor(k / N), c = k % N;
   const mv = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key];
   if (mv) { const nr = r + mv[0], nc = c + mv[1]; if (nr >= 0 && nr < N && nc >= 0 && nc < N) { cells[nr * N + nc].focus(); e.preventDefault(); } return; }
-  if (!humanTurn() || ui.swap) return;
+  if (!canPlan() || ui.swap) return;
   if (/^[0-9]$/.test(e.key) && canPlace(k) && !ui.pending.some(t => t.k === k)) {
     const used = new Set(ui.pending.map(t => t.ri));
-    const ri = cur().rack.findIndex((d, i) => d === +e.key && !used.has(i));
+    const ri = me().rack.findIndex((d, i) => d === +e.key && !used.has(i));
     if (ri < 0) { ui.msg = `You don’t have a ${e.key} left.`; ui.err = true; render(); return; }
     const vert = ui.pending.length && ui.pending.every(t => t.k % N === c) && !ui.pending.every(t => Math.floor(t.k / N) === r);
     placeAt(k, ri); render();
@@ -1023,8 +1032,8 @@ $('bPlay').addEventListener('click', () => {
 });
 $('bRecall').addEventListener('click', () => { ui.pending = []; ui.msg = ''; ui.err = false; ui.bad = null; render(); });
 $('bShuffle').addEventListener('click', () => {
-  if (!humanTurn()) return;
-  ui.pending = []; ui.sel = null; ui.bad = null; shuffle(cur().rack); save(); render();
+  if (!canPlan()) return;
+  ui.pending = []; ui.sel = null; ui.bad = null; shuffle(me().rack); save(); render();
 });
 $('bSwap').addEventListener('click', () => {
   if (!humanTurn()) return;
@@ -1044,13 +1053,13 @@ $('bHint').addEventListener('click', async () => {
   if (isPz()) return revealTile();
   if (S.hint) { // one hint per turn: re-show the same move for free
     const used = new Set();
-    ui.pending = S.hint.map(t => { const ri = cur().rack.findIndex((d, i) => d === t.d && !used.has(i)); used.add(ri); return { k: t.k, d: t.d, ri }; });
+    ui.pending = S.hint.map(t => { const ri = me().rack.findIndex((d, i) => d === t.d && !used.has(i)); used.add(ri); return { k: t.k, d: t.d, ri }; });
     ui.sel = null; ui.msg = 'Here’s your hint again. No extra charge, and there’s one hint per turn.'; ui.err = false;
     return render();
   }
   const game = S;
   ui.pending = []; ui.sel = null; ui.thinking = true; render();
-  const best = pickMove(await search(S.board, cur().rack, { maxLen: 7, budget: 1500 }), 'hard');
+  const best = pickMove(await search(S.board, me().rack, { maxLen: 7, budget: 1500 }), 'hard');
   ui.thinking = false;
   if (S !== game) return render();
   if (best) {
@@ -1090,7 +1099,7 @@ function tapSelect(k) {
 }
 function cellAt(x, y) { const el = document.elementFromPoint(x, y); const c = el && el.closest && el.closest('.cell'); return c ? +c.dataset.k : null; }
 boardEl.addEventListener('pointerdown', e => {
-  if (!humanTurn() || ui.swap || isPz()) return;
+  if (!canPlan() || ui.swap || isPz()) return;
   const k = cellAt(e.clientX, e.clientY);
   if (k == null || S.board[k] == null) return;
   drag = { anchor: k, moved: false, key: '' };
@@ -1113,7 +1122,7 @@ $('bWb').addEventListener('click', wbOpen);
 const where = (r, c) => `row ${r + 1}, column ${c + 1}`;
 const fmtN = v => v < 0 ? '−' + Math.abs(v) : String(v);
 function wbOpen() {
-  if (!humanTurn()) return;
+  if (!canPlan()) return;
   ui.pending = []; ui.sel = null; ui.bad = null; ui.msg = '';
   const base = ui.circSel.slice();
   let dirs;
@@ -1174,7 +1183,7 @@ function tricks(X, op, Y, say) {
   const weak = op === '×' && (X === 1 || Y === 1) ? 'multiplying by 1' : op === '÷' && Y === 1 ? 'dividing by 1' : null;
   if (weak) say('warn', `Allowed, but ${weak} is a weak play.`);
 }
-function wbDigit(x) { return x.t === 'c' ? S.board[ui.wb.base[x.i]] : cur().rack[x.i]; }
+function wbDigit(x) { return x.t === 'c' ? S.board[ui.wb.base[x.i]] : me().rack[x.i]; }
 function mathCheck() {
   const toks = [];
   for (const x of ui.wb.items) {
@@ -1263,12 +1272,12 @@ function noBaseCheck(s, digs, say) {
 }
 function renderWB() {
   const back = $('wbBack');
-  if (ui.wb && !humanTurn()) ui.wb = null;
+  if (ui.wb && !canPlan()) ui.wb = null;
   const open = !!ui.wb;
   back.hidden = !open;
   document.body.style.overflow = open ? 'hidden' : '';
   if (!open) return;
-  const wb = ui.wb, rack = cur().rack, baseD = wb.base.map(k => S.board[k]);
+  const wb = ui.wb, rack = me().rack, baseD = wb.base.map(k => S.board[k]);
   const usedC = new Set(wb.items.filter(x => x.t === 'c').map(x => x.i)), usedR = new Set(wb.items.filter(x => x.t === 'r').map(x => x.i));
   const dn = d => d === 'h' ? 'across' : 'down';
   $('wbDir').textContent = !baseD.length ? (S.board.some(x => x != null) ? 'No base selected · scratch math' : 'No base needed · first play goes through the star') : `Base ${baseD.join('')} · ${wb.dirs.length > 1 ? `tries ${dn(wb.dirs[0])}, then ${dn(wb.dirs[1])}` : `goes ${dn(wb.dirs[0])}`}`;
@@ -1301,7 +1310,7 @@ $('wbClose').addEventListener('click', wbClose);
 $('wbBack').addEventListener('click', e => { if (e.target === $('wbBack')) wbClose(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && ui.wb) wbClose(); });
 $('wbPlace').addEventListener('click', () => {
-  const pl = ui.wbPlace; if (!pl || !humanTurn()) return;
+  const pl = ui.wbPlace; if (!pl || !canPlan()) return;
   ui.wb = null; ui.circSel = []; ui.wbPlace = null;
   ui.pending = pl.map(p => ({ ...p }));
   ui.msg = 'Placed from the workbench. Press Play to score it, or Recall to take it back.'; ui.err = false;
