@@ -1,0 +1,194 @@
+// @ts-nocheck
+// Equatile online play. All game state lives in the private "equatile" schema,
+// reached only through this function, so racks and the bag stay hidden.
+import postgres from 'npm:postgres@3.4.5';
+import { N, RACK, PTS, DIST, evaluate } from './engine.js';
+
+const sql = postgres(Deno.env.get('SUPABASE_DB_URL'), { prepare: false, max: 3 });
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+const cors = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
+class Fail extends Error { constructor(msg, status = 400) { super(msg); this.status = status; } }
+
+const rand = n => crypto.getRandomValues(new Uint32Array(n));
+function shuffle(a) { const r = rand(a.length); for (let i = a.length - 1; i > 0; i--) { const j = r[i] % (i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const makeCode = () => Array.from(rand(6), x => CODE_CHARS[x % CODE_CHARS.length]).join('');
+const makeToken = () => Array.from(rand(8), x => x.toString(16).padStart(8, '0')).join('');
+async function hash(t) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)); return Array.from(new Uint8Array(b), x => x.toString(16).padStart(2, '0')).join(''); }
+const cleanName = (s, d) => (String(s || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 24)) || d;
+const draw = (rack, bag) => { while (rack.length < RACK && bag.length) rack.push(bag.pop()); };
+
+async function broadcast(gameId, version) {
+  if (!SERVICE_KEY) return;
+  try {
+    await fetch(`${SUPABASE_URL}/realtime/v1/api/broadcast`, {
+      method: 'POST',
+      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: [{ topic: `equatile-${gameId}`, event: 'update', payload: { version } }] }),
+    });
+  } catch (_) { /* clients also poll */ }
+}
+
+function view(g, ps, seat) {
+  const me = ps.find(p => p.seat === seat);
+  return {
+    gameId: g.id, code: g.code, status: g.status, version: g.version, turn: g.turn, seat,
+    board: g.board, last: g.last, log: g.log.slice(0, 60), bag: g.bag.length, scoreless: g.scoreless, outSeat: g.out_seat,
+    players: [0, 1].map(s => { const p = ps.find(x => x.seat === s); return p ? { name: p.name, score: p.score, tiles: p.rack.length } : null; }),
+    rack: me.rack,
+  };
+}
+
+async function load(tx, gameId, token, lock = true) {
+  if (!/^[0-9a-f-]{36}$/.test(String(gameId))) throw new Fail('Game not found.', 404);
+  const [g] = lock ? await tx`select * from equatile.games where id = ${gameId} for update` : await tx`select * from equatile.games where id = ${gameId}`;
+  if (!g) throw new Fail('Game not found.', 404);
+  const ps = await tx`select * from equatile.players where game_id = ${gameId} order by seat`;
+  const h = await hash(String(token || ''));
+  const me = ps.find(p => p.token_hash === h);
+  if (!me) throw new Fail('That link or code doesn’t belong to a player in this game.', 403);
+  return { g, ps, seat: me.seat };
+}
+
+function endGame(g, ps, outSeat) {
+  const left = ps.map(p => p.rack.reduce((s, d) => s + PTS[d], 0));
+  ps.forEach((p, i) => { p.score -= left[i]; });
+  if (outSeat != null) ps[outSeat].score += left.reduce((a, b, i) => i === outSeat ? a : a + b, 0);
+  g.status = 'over'; g.out_seat = outSeat;
+}
+
+async function save(tx, g, ps) {
+  g.version += 1;
+  await tx`update equatile.games set status = ${g.status}, board = ${tx.json(g.board)}, bag = ${tx.json(g.bag)}, turn = ${g.turn},
+    scoreless = ${g.scoreless}, version = ${g.version}, log = ${tx.json(g.log)}, last = ${tx.json(g.last)}, out_seat = ${g.out_seat}, updated_at = now()
+    where id = ${g.id}`;
+  for (const p of ps) await tx`update equatile.players set rack = ${tx.json(p.rack)}, score = ${p.score} where game_id = ${g.id} and seat = ${p.seat}`;
+}
+
+function scorelessTurn(g, ps, seat, note) {
+  g.log.unshift({ who: seat, note, pts: 0 });
+  g.scoreless += 1;
+  if (g.scoreless >= 6) endGame(g, ps, null); else g.turn = 1 - g.turn;
+}
+
+const actions = {
+  async create(b, after) {
+    const bag = shuffle(DIST.flatMap((n, d) => Array(n).fill(d)));
+    const r0 = [], r1 = []; draw(r0, bag); draw(r1, bag); r1.push(bag.pop()); // second player starts with 8
+    const token = makeToken(), h = await hash(token);
+    for (let i = 0; i < 5; i++) {
+      const code = makeCode();
+      try {
+        const [g] = await sql`insert into equatile.games (code, board, bag) values (${code}, ${sql.json(Array(N * N).fill(null))}, ${sql.json(bag)}) returning *`;
+        await sql`insert into equatile.players (game_id, seat, name, token_hash, rack) values
+          (${g.id}, 0, ${cleanName(b.name, 'Player 1')}, ${h}, ${sql.json(r0)}), (${g.id}, 1, '', '', ${sql.json(r1)})`;
+        const ps = await sql`select * from equatile.players where game_id = ${g.id} order by seat`;
+        return { token, ...view(g, ps, 0) };
+      } catch (e) { if (!String(e.message).includes('duplicate')) throw e; }
+    }
+    throw new Fail('Couldn’t make a game code. Try again.', 500);
+  },
+  async join(b, after) {
+    const code = String(b.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    return await sql.begin(async tx => {
+      const [g] = await tx`select * from equatile.games where code = ${code} for update`;
+      if (!g) throw new Fail('No game with that code.', 404);
+      if (g.status !== 'waiting') throw new Fail('That game already has two players.', 409);
+      const token = makeToken();
+      await tx`update equatile.players set name = ${cleanName(b.name, 'Player 2')}, token_hash = ${await hash(token)} where game_id = ${g.id} and seat = 1`;
+      g.status = 'active';
+      const ps = await tx`select * from equatile.players where game_id = ${g.id} order by seat`;
+      await save(tx, g, ps);
+      after.push(() => broadcast(g.id, g.version));
+      return { token, ...view(g, ps, 1) };
+    });
+  },
+  async state(b, after) {
+    const { g, ps, seat } = await load(sql, b.gameId, b.token, false);
+    return view(g, ps, seat);
+  },
+  async play(b, after) {
+    return await sql.begin(async tx => {
+      const { g, ps, seat } = await load(tx, b.gameId, b.token);
+      if (g.status !== 'active') throw new Fail(g.status === 'waiting' ? 'Waiting for the other player to join.' : 'This game is over.', 409);
+      if (g.turn !== seat) throw new Fail('It’s not your turn.', 409);
+      const me = ps[seat];
+      const raw = Array.isArray(b.placements) ? b.placements : [];
+      if (!raw.length || raw.length > me.rack.length) throw new Fail('Place at least one tile.');
+      const pl = raw.map(t => ({ k: t.k | 0, d: t.d | 0 }));
+      if (pl.some(t => t.k < 0 || t.k >= N * N || t.d < 0 || t.d > 9) || new Set(pl.map(t => t.k)).size !== pl.length) throw new Fail('That play isn’t valid.');
+      const rack = me.rack.slice();
+      for (const t of pl) { const i = rack.indexOf(t.d); if (i < 0) throw new Fail('Those tiles aren’t all in your rack.'); rack.splice(i, 1); }
+      const res = evaluate(g.board, pl);
+      if (!res.ok) throw new Fail(res.msg || 'Every line has to be a true equation.');
+      for (const t of pl) g.board[t.k] = t.d;
+      me.rack = rack; me.score += res.total; draw(me.rack, g.bag);
+      g.log.unshift({ who: seat, eqs: res.runs.map(r => r.eq.parts), pts: res.total, bingo: res.bingo });
+      g.last = pl.map(t => t.k); g.scoreless = 0;
+      if (!me.rack.length && !g.bag.length) endGame(g, ps, seat); else g.turn = 1 - seat;
+      await save(tx, g, ps);
+      after.push(() => broadcast(g.id, g.version));
+      return { scored: res.total, ...view(g, ps, seat) };
+    });
+  },
+  async swap(b, after) {
+    return await sql.begin(async tx => {
+      const { g, ps, seat } = await load(tx, b.gameId, b.token);
+      if (g.status !== 'active' || g.turn !== seat) throw new Fail('It’s not your turn.', 409);
+      const me = ps[seat], digits = (Array.isArray(b.digits) ? b.digits : []).map(d => d | 0);
+      if (!digits.length) throw new Fail('Pick tiles to swap.');
+      if (g.bag.length < digits.length) throw new Fail(`Only ${g.bag.length} tiles left in the bag.`);
+      const rack = me.rack.slice();
+      for (const d of digits) { const i = rack.indexOf(d); if (i < 0) throw new Fail('Those tiles aren’t all in your rack.'); rack.splice(i, 1); }
+      me.rack = rack; draw(me.rack, g.bag); g.bag.push(...digits); shuffle(g.bag);
+      scorelessTurn(g, ps, seat, `Swapped ${digits.length} tile${digits.length > 1 ? 's' : ''}`);
+      await save(tx, g, ps);
+      after.push(() => broadcast(g.id, g.version));
+      return view(g, ps, seat);
+    });
+  },
+  async pass(b, after) {
+    return await sql.begin(async tx => {
+      const { g, ps, seat } = await load(tx, b.gameId, b.token);
+      if (g.status !== 'active' || g.turn !== seat) throw new Fail('It’s not your turn.', 409);
+      scorelessTurn(g, ps, seat, 'Passed');
+      await save(tx, g, ps);
+      after.push(() => broadcast(g.id, g.version));
+      return view(g, ps, seat);
+    });
+  },
+  async resign(b, after) {
+    return await sql.begin(async tx => {
+      const { g, ps, seat } = await load(tx, b.gameId, b.token);
+      if (g.status === 'over') throw new Fail('This game is over.', 409);
+      g.log.unshift({ who: seat, note: 'Resigned', pts: 0 });
+      g.status = 'over'; g.out_seat = null;
+      ps[seat].score = Math.min(ps[seat].score, ps[1 - seat].score - 1);
+      await save(tx, g, ps);
+      after.push(() => broadcast(g.id, g.version));
+      return view(g, ps, seat);
+    });
+  },
+};
+
+Deno.serve(async req => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
+  if (req.method !== 'POST') return json({ error: 'Use POST.' }, 405);
+  let body;
+  try { body = await req.json(); } catch { return json({ error: 'Bad request.' }, 400); }
+  const fn = actions[body?.action];
+  if (!fn) return json({ error: 'Unknown action.' }, 400);
+  const after = [];
+  try { const out = await fn(body, after); for (const f of after) await f(); return json(out); }
+  catch (e) {
+    if (e instanceof Fail) return json({ error: e.message }, e.status);
+    console.error(e);
+    return json({ error: 'Something went wrong on the server.' }, 500);
+  }
+});
