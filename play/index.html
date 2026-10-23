@@ -434,12 +434,24 @@ body{font-size:15px;-webkit-font-smoothing:antialiased}
 .seg label small{font-weight:600}
 .seg label:has(input:checked){border-color:var(--pencil);background:var(--pencil-soft);box-shadow:inset 0 0 0 1px var(--pencil)}
 .wt.mine{background:linear-gradient(165deg,#FFFEF9 0%,#FFF8E8 55%,#F7EDD6 100%);color:var(--forest);box-shadow:inset 0 -4px 0 #DCCCA4,0 0 0 2px var(--pencil),0 1px 2px var(--tile-shadow)}
+/* My games / New game live in the header, away from Play */
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
+.top h1{margin-right:auto}
+.top-nav{display:flex;gap:6px;order:2}
+.top .scores{order:3}
+.nav-btn{background:transparent;border:1.5px solid var(--line);color:var(--muted);font-size:.82rem;padding:6px 11px;box-shadow:none}
+.nav-btn:hover:not(:disabled){color:var(--ink);background:var(--card)}
+#bNew::before{content:"+";font-weight:900;margin-right:5px;color:var(--pencil)}
+@media (min-width:861px){.top h1{margin-right:0}.top-nav{margin-right:auto;margin-left:8px}}
+@media (max-width:860px){.top .scores{flex-basis:100%}}
+@media (max-width:560px){.nav-btn{font-size:.78rem;padding:6px 9px;min-height:34px}}
 @media (prefers-reduced-motion: reduce){.chip.turned,.tile.pending{animation:none!important;transform:none}}
 </style>
 
 <div class="app">
   <header class="top">
     <h1 style="margin:0"><a class="brandmark" href="../" aria-label="Equacross home"><img class="logo-light" src="../assets/brand/logo-wordmark.svg" alt="Equacross" width="190" height="45"><img class="logo-dark" src="../assets/brand/logo-wordmark-on-dark.svg" alt="Equacross" width="190" height="45"></a></h1>
+    <nav class="top-nav" aria-label="Games"><button class="btn nav-btn" id="bGames">My games</button><button class="btn nav-btn" id="bNew">New game</button></nav>
     <div class="scores" id="scores"></div>
   </header>
 
@@ -451,7 +463,6 @@ body{font-size:15px;-webkit-font-smoothing:antialiased}
       <div class="actions" id="actions">
         <div class="act-main"><button class="btn primary" id="bPlay">Play</button><button class="btn" id="bRecall">Recall</button></div>
         <div class="act-sec"><button class="btn" id="bShuffle">Shuffle</button><button class="btn" id="bSwap">Swap</button><button class="btn" id="bPass">Pass</button><button class="btn" id="bHint">Show a move</button><button class="btn" id="bWb">Workbench</button></div>
-        <div class="act-meta"><button class="btn" id="bGames">My games</button><button class="btn" id="bNew">New game</button></div>
       </div>
     </section>
 
