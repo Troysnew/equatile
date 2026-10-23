@@ -122,6 +122,15 @@ h1 .eq{color:var(--pencil)}
 .log .eqline{font-size:.92rem;grid-column:1}
 .log .pts{grid-column:2;grid-row:1 / span 3;font-family:var(--f-num);font-weight:800;align-self:center}
 .rules p,.rules li{margin:0;color:var(--ink)}
+.rules > summary{list-style:none;display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer;margin:-14px -16px;padding:14px 16px;border-radius:12px}
+.rules > summary::-webkit-details-marker{display:none}
+.rules > summary h2{margin:0}
+.rules > summary .tog::before{content:"+";font:800 1.3rem var(--f-num);color:var(--pencil)}
+.rules[open] > summary{margin-bottom:6px}
+.rules[open] > summary .tog::before{content:"−"}
+.rules > summary:focus-visible{outline:2px solid var(--pencil);outline-offset:-2px}
+.full-rules{margin-top:12px!important}
+.full-rules a{color:var(--pencil);font-weight:600}
 .rules ul{margin:6px 0 0;padding-left:1.1em;display:flex;flex-direction:column;gap:5px}
 .rules .k{font-family:var(--f-num);font-weight:700}
 .demo{display:flex;flex-direction:column;gap:8px;margin:4px 0 10px}
@@ -262,8 +271,8 @@ button,.btn,.key,.wt,.sop,.rt,.cell,.seg label{touch-action:manipulation}
         <h2>Plays so far</h2>
         <ol class="log" id="log"></ol>
       </section>
-      <section class="panel rules">
-        <h2>How it works</h2>
+      <details class="panel rules" id="howto" open>
+        <summary><h2>How it works</h2><span class="tog" aria-hidden="true"></span></summary>
         <div class="demo">
           <div class="drow"><div class="mini"><span>9</span><span class="gap"></span><span>2</span></div><span>Drop a 7 in the gap</span></div>
           <div class="drow"><div class="mini"><span>9</span><span class="new">7</span><span>2</span></div><div class="eqline">9<span class="op">−</span>7<span class="op">=</span>2</div></div>
@@ -296,7 +305,8 @@ button,.btn,.key,.wt,.sop,.rt,.cell,.seg label{touch-action:manipulation}
           <span class="sw" style="background:var(--p2e)">2E</span><span>Doubles the whole equation</span>
           <span class="sw" style="background:var(--p3e)">3E</span><span>Triples the whole equation</span>
         </div>
-      </section>
+        <p class="full-rules"><a href="../how-to-play/">Full rules, scoring and examples</a></p>
+      </details>
     </aside>
   </main>
 </div>
@@ -1552,6 +1562,13 @@ function start(data) {
   if (data && data.pending) ui.pending = data.pending;
   save(); render(); maybeAI(); refreshOnlineList();
 }
+// How it works: open on someone's first visit, folded away after that.
+(() => {
+  const d = $('howto'); if (!d) return;
+  let seen = null; try { seen = localStorage.getItem('equatile.howto'); } catch (e) {}
+  d.open = !seen;
+  try { if (!seen) localStorage.setItem('equatile.howto', 'seen'); } catch (e) {}
+})();
 window.claude?.hot?.snapshot?.(() => ({ S, pending: ui.pending }));
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
 })();
