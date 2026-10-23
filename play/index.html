@@ -166,6 +166,10 @@ h1 .eq{color:var(--pencil)}
 .sheet-sub{margin:2px 0 0;color:var(--muted);font-size:.88rem}
 .sheet-foot{bottom:0;padding-block:12px calc(12px + env(safe-area-inset-bottom, 0px));border-top:1px solid var(--padline)}
 .sheet > *{flex-shrink:0}
+/* stop iOS double-tap zoom on fast taps; pinch zoom still works */
+html{touch-action:manipulation}
+button,.btn,.key,.wt,.sop,.rt,.cell,.seg label{touch-action:manipulation}
+.cell.filled{touch-action:none}
 .lay{display:flex;flex-direction:column;gap:10px}
 .lay-dir{display:flex;flex-direction:column;gap:4px;min-width:0}
 .lay-cap{font-size:.85rem;color:var(--muted)}

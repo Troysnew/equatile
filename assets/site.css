@@ -21,7 +21,7 @@
 }
 
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; touch-action: manipulation; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 400 17px/1.6 var(--f-body); }
 img, svg { max-width: 100%; }
 a { color: inherit; text-decoration-color: color-mix(in srgb, var(--pencil) 60%, transparent); text-underline-offset: 3px; }
