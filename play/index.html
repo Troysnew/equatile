@@ -9,6 +9,7 @@
 <meta name="theme-color" content="#FBF9F3" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0E1C15" media="(prefers-color-scheme: dark)">
 <link rel="preload" href="../assets/fonts/nunito-sans-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../assets/fonts/nunito-sans-latin-900-normal.woff2" as="font" type="font/woff2" crossorigin>
 <meta name="description" content="Play Equacross: a Scrabble-style game with number tiles where every line is an equation.">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
@@ -32,7 +33,7 @@
   --p2t:#CFE0EE; --p3t:#91B9D8; --p2e:#F6D2CE; --p3e:#EE9C92; --prem-ink:#193B2C;
   --ok:#2E7D4F; --ok-soft:#D7EBDC; --bad:#B3372A; --warn:#94660A;
   --pad:#EEF3E6; --padline:#DCE6CF; --circ-bg:#193B2C; --circ-ink:#FFF8E8; --circ-edge:#0C2219;
-  --mine-bg:#F5D565; --mine-ink:#2B2306; --mine-edge:#C9A62C;
+  --mine-bg:#FFF6DA; --mine-ink:#193B2C; --mine-edge:#DCCCA4;
   --f-display:"Nunito Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --f-body:"Nunito Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --f-num:"Nunito Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -47,7 +48,7 @@
   --p2t:#24405A; --p3t:#35648E; --p2e:#4F2C29; --p3e:#83413A; --prem-ink:#DCE6D6;
   --ok:#6CC690; --ok-soft:#1F3A29; --bad:#F07261; --warn:#E3B34A;
   --pad:#122119; --padline:#1C3124; --circ-bg:#05110B; --circ-ink:#EEF2E6; --circ-edge:#2E4A3A;
-  --mine-bg:#E9C63C; --mine-ink:#251D03; --mine-edge:#A6871A; --sh-card:none; color-scheme:dark }}
+  --mine-bg:#FFF6DA; --mine-ink:#193B2C; --mine-edge:#C8B88F; --sh-card:none; color-scheme:dark }}
 :root[data-theme="dark"]{
   --bg:#0E1C15; --paper:#1A3024; --void:#152820; --grid:#0F2219; --card:#142620; --line:#25392D;
   --ink:#EEF2E6; --muted:#A3B5A0; --pencil:#EC6A5C; --pencil-press:#D85A4C; --pencil-soft:#4A2620; --on-pencil:#1A0B08;
@@ -55,7 +56,7 @@
   --p2t:#24405A; --p3t:#35648E; --p2e:#4F2C29; --p3e:#83413A; --prem-ink:#DCE6D6;
   --ok:#6CC690; --ok-soft:#1F3A29; --bad:#F07261; --warn:#E3B34A;
   --pad:#122119; --padline:#1C3124; --circ-bg:#05110B; --circ-ink:#EEF2E6; --circ-edge:#2E4A3A;
-  --mine-bg:#E9C63C; --mine-ink:#251D03; --mine-edge:#A6871A; --sh-card:none; color-scheme:dark }
+  --mine-bg:#FFF6DA; --mine-ink:#193B2C; --mine-edge:#C8B88F; --sh-card:none; color-scheme:dark }
 
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
@@ -354,8 +355,86 @@ body{font-size:15px;-webkit-font-smoothing:antialiased}
 @media (max-width:480px){.rt{width:42px;height:48px;font-size:1.4rem}.rack{gap:4px}.btn{padding:8px 11px}}
 /* desktop: size the board so board, rack and Play fit in one screen */
 @media (min-width:861px){.app{--bw:clamp(460px,calc(100vh - 330px),640px);--bw:clamp(460px,calc(100dvh - 330px),640px)}.board,.rack,.actions,.status{max-width:var(--bw)}.layout{grid-template-columns:minmax(0,var(--bw)) minmax(300px,380px);justify-content:space-between}}
-@media (max-width:560px){.top{gap:10px}.scores{flex-wrap:nowrap;width:100%}.chip{min-width:0;flex:1 1 0;padding:5px 10px 6px}.chip.dim{flex:0 0 auto;min-width:58px}.chip .nm{overflow:hidden;text-overflow:ellipsis}}
-@media (min-width:561px){.act-main{order:0}.act-meta{order:1}.act-sec{order:2;flex-basis:100%}}
+@media (max-width:560px){.top{gap:10px}.scores{flex-wrap:nowrap;width:100%}.chip{min-width:0;flex:1 1 0;padding:5px 10px 6px}.chip.dim{flex:0 0 auto;min-width:58px}.chip .nm{white-space:normal;line-height:1.2;font-size:.62rem}}
+/* ===== approved-mockup layer (v2) ===== */
+/* layout: board dominant, narrower info column */
+@media (min-width:861px){.layout{grid-template-columns:minmax(0,1fr) minmax(280px,340px);gap:28px}.actions{max-width:calc(var(--bw) + 100px)}.act-meta{max-width:var(--bw)}}
+.top{padding-bottom:2px}
+.brandmark img{height:40px;width:auto}
+@media (max-width:520px){.brandmark img{height:30px}}
+/* scores: current player obvious, bag secondary */
+.chip{border-radius:12px;padding:6px 14px 7px;min-width:104px}
+.chip .nm{color:var(--muted)}
+.chip .sc{font-size:1.6rem;color:var(--ink)}
+.chip.on{border:2px solid var(--pencil);padding:5px 13px 6px;background:var(--card)}
+.chip.on .nm{color:var(--pencil)}
+.chip.on .nm::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--pencil);margin-right:6px;vertical-align:1px}
+.chip.dim{min-width:64px;padding:6px 12px 7px;background:transparent;border-color:var(--line);box-shadow:none}
+.chip.dim .sc{font-size:1.2rem;color:var(--muted);line-height:1.35}
+.chip.turned{animation:turnIn .35s var(--ease)}
+@keyframes turnIn{0%{transform:scale(.96);box-shadow:0 0 0 0 color-mix(in srgb,var(--pencil) 40%,transparent)}60%{transform:scale(1.03);box-shadow:0 0 0 6px color-mix(in srgb,var(--pencil) 0%,transparent)}100%{transform:none}}
+/* board: flat sage squares on thin light grid lines */
+.board{gap:1.5px;padding:1.5px;background:#C9D8B8;border-radius:12px;box-shadow:0 1px 2px rgba(25,59,44,.06),0 10px 28px -14px rgba(25,59,44,.28)}
+.cell{border-radius:1px;background:#E4ECD8}
+.cell.p2T{background:#CFE0EE}.cell.p3T{background:#8DB5D6}.cell.p2E{background:#F4D0CB}.cell.p3E{background:#E88A7D}
+.cell.p2T,.cell.p3T,.cell.p2E,.cell.p3E{color:#193B2C;font-weight:900;font-size:calc(100cqi / 13 * .28)}
+.cell:first-child{border-top-left-radius:10px}
+.cell:nth-child(13){border-top-right-radius:10px}
+.cell:nth-child(157){border-bottom-left-radius:10px}
+.cell:last-child{border-bottom-right-radius:10px}
+.cell .star{color:var(--coral);font-size:calc(100cqi / 13 * .56);filter:drop-shadow(0 1px 0 rgba(255,255,255,.6))}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .board{background:#0B1A12}:root:not([data-theme="light"]) .cell{background:#1A3024}:root:not([data-theme="light"]) .cell.p2T{background:#24405A}:root:not([data-theme="light"]) .cell.p3T{background:#35648E}:root:not([data-theme="light"]) .cell.p2E{background:#4F2C29}:root:not([data-theme="light"]) .cell.p3E{background:#83413A}:root:not([data-theme="light"]) .cell.p2T,:root:not([data-theme="light"]) .cell.p3T,:root:not([data-theme="light"]) .cell.p2E,:root:not([data-theme="light"]) .cell.p3E{color:#E6EFDC}}
+/* valid squares while a rack tile is selected: a quiet inner ring on hover/focus */
+.board.picking .cell:not(.filled):not(.void){cursor:copy}
+.board.picking .cell:not(.filled):not(.void):hover,.board.picking .cell:not(.filled):not(.void):focus-visible{box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--pencil) 70%,transparent);filter:none}
+/* shared tile look: board and rack use the same cream face, bevel and shallow edge */
+.tile,.rt{background:linear-gradient(165deg,#FFFEF9 0%,#FFF8E8 55%,#F7EDD6 100%);color:var(--forest)}
+.tile{box-shadow:inset 0 1px 0 rgba(255,255,255,.9),inset 0 -.12em 0 #DCCCA4,0 .06em .1em rgba(25,59,44,.25)}
+.tile .pt,.rt .pt{color:color-mix(in srgb,var(--forest) 70%,transparent);opacity:1}
+/* pending (not yet played): raised a little higher, coral ring, lighter face */
+.tile.pending{background:linear-gradient(165deg,#FFFFFF 0%,#FFF6DA 100%);transform:translateY(-6%);box-shadow:inset 0 -.12em 0 #DCCCA4,0 0 0 2.5px var(--pencil),0 .2em .3em rgba(25,59,44,.28)}
+.tile.last{background:linear-gradient(165deg,#FFFDF2 0%,#FFF0C8 100%)}
+/* rack: no tray, just tiles sitting under the board */
+.rack{background:transparent;border:0;padding:4px 0 2px;min-height:64px;gap:8px}
+.rt{width:50px;height:52px;border-radius:10px;font-size:1.7rem;box-shadow:inset 0 1px 0 rgba(255,255,255,.9),inset 0 -5px 0 #DCCCA4,0 2px 3px rgba(25,59,44,.22);transition:transform .15s var(--ease),box-shadow .15s var(--ease)}
+.rt.sel{transform:translateY(-9px);box-shadow:inset 0 -5px 0 #DCCCA4,0 0 0 3px var(--pencil),0 10px 14px rgba(25,59,44,.25)}
+.rt.sel::after{content:"";position:absolute;left:50%;bottom:-13px;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:var(--pencil)}
+.rt.gone{background:transparent;box-shadow:inset 0 0 0 1.5px var(--line)}
+.rt.swp{box-shadow:inset 0 -5px 0 #DCCCA4,0 0 0 3px var(--warn)}
+.rt.swp::after{content:"⇄";position:absolute;top:-10px;right:-8px;font-size:.7rem;background:var(--warn);color:#fff;border-radius:999px;width:18px;height:18px;display:grid;place-items:center}
+/* controls: one compact row (Play first), then My games / New game to the right */
+.actions{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.act-main,.act-sec{display:contents}
+.act-meta{flex-basis:100%;display:flex;justify-content:flex-end;gap:6px;margin:2px 0 0}
+.btn{font-size:.86rem;padding:7px 12px;border-radius:9px;font-weight:800}
+.btn.primary{padding:7px 20px;font-size:.92rem}
+.act-meta .btn{background:var(--card)}
+@media (max-width:560px){
+  .actions{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
+  .act-main,.act-sec{display:contents}
+  #bPlay{grid-column:span 4;min-height:46px;font-size:1rem}
+  #bRecall{grid-column:span 2}
+  #bShuffle,#bSwap,#bPass{grid-column:span 2}
+  #bHint,#bWb{grid-column:span 3}
+  .act-meta{grid-column:1 / -1;display:grid;grid-template-columns:1fr 1fr;margin:0}
+  .btn{min-height:40px;padding:8px 6px;font-size:.88rem}
+}
+/* info panels */
+.panel{border-radius:14px;padding:14px 16px;border-color:var(--line)}
+.panel h2{font-size:1.02rem;font-weight:900;margin-bottom:6px}
+#preview .eqline{font-size:1.2rem;font-weight:900}
+#preview .ptotal{border-top:1.5px solid var(--line);padding-top:8px;font-weight:900}
+#preview .ptotal .v{font-size:1.5rem;color:var(--ok);line-height:1}
+.log .eqline{font-size:.9rem;font-weight:800}
+.log li{font-size:.9rem}
+@media (max-width:860px){.board,.rack,.actions,.status{max-width:720px}}
+@media (max-width:560px){.board{border-radius:10px}.rack{justify-content:space-between;gap:4px}.rt{flex:1 1 0;max-width:52px;height:50px;width:auto;font-size:1.55rem}}
+/* dialogs and Workbench: same tiles and type as the board */
+.seg label{font-weight:800;background:var(--card)}
+.seg label small{font-weight:600}
+.seg label:has(input:checked){border-color:var(--pencil);background:var(--pencil-soft);box-shadow:inset 0 0 0 1px var(--pencil)}
+.wt.mine{background:linear-gradient(165deg,#FFFEF9 0%,#FFF8E8 55%,#F7EDD6 100%);color:var(--forest);box-shadow:inset 0 -4px 0 #DCCCA4,0 0 0 2px var(--pencil),0 1px 2px var(--tile-shadow)}
+@media (prefers-reduced-motion: reduce){.chip.turned,.tile.pending{animation:none!important;transform:none}}
 </style>
 
 <div class="app">
@@ -1019,9 +1098,10 @@ function flashGlow(cells) {
 }
 function bumpScores() {
   if (isPz()) { lastScores = null; return; }
-  const now = { id: S.id, s: S.players.map(p => p.score) };
+  const now = { id: S.id, s: S.players.map(p => p.score), t: S.turn };
   if (lastScores && lastScores.id === now.id) {
     const chips = $('scores').querySelectorAll('.chip');
+    if (now.t !== lastScores.t && chips[now.t]) chips[now.t].classList.add('turned');
     now.s.forEach((v, i) => {
       const d = v - lastScores.s[i];
       if (d > 0 && chips[i]) { chips[i].classList.add('bump'); const pl = document.createElement('span'); pl.className = 'plus'; pl.textContent = '+' + d; chips[i].appendChild(pl); }
@@ -1046,6 +1126,7 @@ function render() {
   if (!S) { $('status').textContent = ui.msg; return; }
   const pz = isPz();
   renderScores();
+  $('board').classList.toggle('picking', ui.sel != null && !S.over);
   // board
   const pend = new Map(ui.pending.map(p => [p.k, p.d]));
   const last = new Set(S.last), holes = pz ? new Set(S.puzzle.holes) : null, circ = new Set(ui.circSel);

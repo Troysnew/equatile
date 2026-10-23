@@ -28,9 +28,10 @@ def load(name):
     return TTFont(io.BytesIO(data)), font, face.upem
 
 
-FRED = load("fredoka-latin-700-normal.woff2")
-NUN_B = load("nunito-sans-latin-800-normal.woff2")
+NUN_W = load("../../tools/fonts/nunito-latin-900-normal.woff2")   # Nunito Black (rounded): wordmark only, not shipped
+NUN_B = load("nunito-sans-latin-700-normal.woff2")
 NUN_K = load("nunito-sans-latin-900-normal.woff2")
+KIT = ROOT / "tools/kit"   # the approved handoff SVGs
 
 
 def text_paths(fontpack, text, size, x, y, tracking=0.0):
@@ -58,46 +59,62 @@ def bbox_of(fontpack, text, size):
     return w
 
 
-def accents(cx, cy, scale, color=CORAL):
-    """The three coral 'spark' strokes, fanning out from a point below them."""
-    rays = [(-40, 0.52, 0.86), (-6, 0.42, 0.98), (34, 0.50, 0.80)]   # angle from vertical, inner radius, outer radius
-    sw = 0.20 * scale
-    parts = []
-    for ang, r1, r2 in rays:
-        a = math.radians(ang)
-        x1, y1 = cx + math.sin(a) * r1 * scale, cy - math.cos(a) * r1 * scale
-        x2, y2 = cx + math.sin(a) * r2 * scale, cy - math.cos(a) * r2 * scale
-        parts.append(f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}"/>')
-    return f'<g stroke="{color}" stroke-width="{sw:.1f}" stroke-linecap="round" fill="none">{"".join(parts)}</g>'
+def spark(ox, oy, em, color=CORAL):
+    """The three coral accent strokes, using the geometry from the supplied handoff wordmark."""
+    k = em * 0.95 / 110
+    segs = [((0, -19), (-8, -34)), ((17, -21), (19, -42)), ((33, -14), (49, -27))]
+    lines = "".join(f'<line x1="{ox + x1 * k:.1f}" y1="{oy + y1 * k:.1f}" x2="{ox + x2 * k:.1f}" y2="{oy + y2 * k:.1f}"/>' for (x1, y1), (x2, y2) in segs)
+    return f'<g stroke="{color}" stroke-width="{10 * k:.1f}" stroke-linecap="round" fill="none">{lines}</g>'
+
+
+# Small per-letter tilt (degrees) and baseline lift (em) that give the hand-set, bouncy feel of the approved logo.
+BOUNCE = [(-3, 0.0), (2, 0.012), (0, 0.0), (-2, 0.006), (2.5, 0.0), (-2.5, 0.01), (1.5, 0.0), (-2, 0.008), (3, 0.0)]
 
 
 def wordmark(equa=FOREST, cross=CORAL, tagline=None, tag_color=None):
-    size = 200
-    paths, w = text_paths(FRED, "Equacross", size, 0, 0)
-    equa_d = " ".join(d for i, d in paths if i < 4)
-    cross_d = " ".join(d for i, d in paths if i >= 4)
-    # place the spark just above the final "s", using its real outline bounds
+    """Outlined wordmark: Nunito Black, tightened, thickened with a round-joined outline, each letter slightly tilted."""
     from fontTools.pens.boundsPen import BoundsPen
-    tt = FRED[0]; gs = tt.getGlyphSet(); bp = BoundsPen(gs); gs["s"].draw(bp)
-    _, _, _, s_top = bp.bounds; s_top *= size / FRED[2]
-    _, w8 = text_paths(FRED, "Equacros", size, 0, 0)
-    s_center = w8 + (w - w8) * 0.5
-    sc = size * 0.36
-    sx, sy = s_center + size * 0.02, -s_top - size * 0.16 + sc * 0.42
-    pad = size * 0.06
+    size = 200
+    tt, font, upem = NUN_W
+    sc = size / upem
+    buf = hb.Buffer(); buf.add_str("Equacross"); buf.guess_segment_properties()
+    hb.shape(font, buf, {"kern": True})
+    gs, order = tt.getGlyphSet(), tt.getGlyphOrder()
+    track = -0.035 * upem
+    pen_x = 0; parts = []; boxes = []
+    thick = size * 0.05
+    for i, (info, pos) in enumerate(zip(buf.glyph_infos, buf.glyph_positions)):
+        name = order[info.codepoint]
+        sp = SVGPathPen(gs); x0 = pen_x * sc
+        gs[name].draw(TransformPen(sp, (sc, 0, 0, -sc, x0, 0)))
+        bp = BoundsPen(gs); gs[name].draw(bp); xmin, ymin, xmax, ymax = bp.bounds
+        cx = x0 + (xmin + xmax) / 2 * sc
+        rot, lift = BOUNCE[i]
+        color = equa if i < 4 else cross
+        parts.append(f'<path d="{sp.getCommands()}" fill="{color}" stroke="{color}" stroke-width="{thick:.1f}" stroke-linejoin="round" '
+                     f'transform="translate(0 {-lift * size:.1f}) rotate({rot} {cx:.1f} {-size * 0.3:.1f})"/>')
+        boxes.append((x0 + xmin * sc, x0 + xmax * sc, ymax * sc))
+        pen_x += pos.x_advance + (track if i < 8 else 0)
+    w = boxes[-1][1] + thick / 2
+    xh = boxes[-1][2]
+    s1, s2 = boxes[7], boxes[8]
+    ox = (s1[0] + s1[1]) / 2 + size * 0.11
+    oy = -xh - thick / 2 + size * 0.065
+    body = "".join(parts) + spark(ox, oy, size * 1.02)
     cap = size * 0.72
-    min_y = min(-cap, sy - sc * 1.0) - size * 0.04
-    body = f'<path fill="{equa}" d="{equa_d}"/><path fill="{cross}" d="{cross_d}"/>' + accents(sx, sy, sc)
-    view_h = -min_y + size * 0.26
+    min_y = min(-cap - thick, oy - size * 0.42) - size * 0.03
+    pad = size * 0.04
+    view_h = -min_y + size * 0.27
     if tagline:
         tsize = size * 0.155
-        tpaths, tw = text_paths(NUN_B, tagline, tsize, 0, 0, tracking=0.22)
-        tx = w - tw - size * 0.02
-        ty = size * 0.26 + tsize * 1.05
+        tpaths, tw = text_paths(NUN_B, tagline, tsize, 0, 0, tracking=0.2)
+        tx = w - tw
+        ty = size * 0.17 + tsize * 1.0
         td = " ".join(d for _, d in tpaths)
-        body += f'<path fill="{tag_color or equa}" fill-opacity="0.82" transform="translate({tx:.1f},{ty:.1f})" d="{td}"/>'
-        view_h = -min_y + ty + tsize * 0.35
-    vb = f"{-pad:.1f} {min_y:.1f} {w + 2 * pad:.1f} {view_h:.1f}"
+        body += f'<path fill="{tag_color or "#5E7366"}" transform="translate({tx:.1f},{ty:.1f})" d="{td}"/>'
+        view_h = -min_y + ty + tsize * 0.32
+    x_min = boxes[0][0] - thick / 2 - pad
+    vb = f"{x_min:.1f} {min_y:.1f} {w - x_min + pad:.1f} {view_h:.1f}"
     return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{vb}" role="img" aria-label="Equacross"><title>Equacross</title>{body}</svg>\n'
 
 
@@ -119,58 +136,56 @@ def tile(x, y, s, digit=None, rot=0, shadow=True, edge=TILE_EDGE, face=CREAM):
     return "".join(g)
 
 
-def board_bg(n=512, rr=None, full_bleed=False):
-    rr = n * 0.225 if rr is None else rr
-    cells = 5; c = n / cells
-    tint = {(0, 4): CORAL_L, (3, 0): BLUE, (4, 0): CORAL_L, (2, 4): "#F6D2CE", (0, 1): "#CFE0EE"}
-    parts = [f'<rect width="{n}" height="{n}" rx="{0 if full_bleed else rr:.1f}" fill="{SAGE_D}"/>']
-    for r in range(cells):
-        for col in range(cells):
-            fill = tint.get((r, col), SAGE if (r + col) % 2 == 0 else "#D7E3C8")
-            parts.append(f'<rect x="{col * c + 3:.1f}" y="{r * c + 3:.1f}" width="{c - 6:.1f}" height="{c - 6:.1f}" rx="10" fill="{fill}"/>')
-    return parts
+def outline_digits(svg):
+    """Replace the handoff icon's <text> numerals with Nunito Sans Black outlines so they render the same everywhere."""
+    import re
+    def rep(m):
+        x, y, size, digit = float(m.group(1)), float(m.group(2)), float(m.group(3)), m.group(4)
+        paths, dw = text_paths(NUN_K, digit, size, 0, 0)
+        d = " ".join(p for _, p in paths)
+        return f'<path fill="{FOREST}" transform="translate({x - dw / 2:.1f},{y + size * 0.02:.1f})" d="{d}"/>'
+    return re.sub(r'<text x="([\d.]+)" y="([\d.]+)" text-anchor="middle"[^>]*font-size="([\d.]+)"[^>]*>(\d)</text>', rep, svg)
 
 
-def icon_primary(n=512, full_bleed=False, inset=1.0):
-    """9 7 2 on a sage board. In Equacross the line 972 reads as 9 − 7 = 2, a true equation."""
-    clip = f'<clipPath id="r"><rect width="{n}" height="{n}" rx="{0 if full_bleed else n * 0.225:.1f}"/></clipPath>'
-    parts = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {n} {n}" role="img" aria-label="Equacross"><title>Equacross</title><defs>{clip}</defs><g clip-path="url(#r)">']
-    parts += board_bg(n, full_bleed=full_bleed)
-    s = n * 0.32 * inset
-    cx, cy = n / 2, n / 2
-    step = s * 0.80
-    pos = [(-1, -1), (0, 0), (1, 1)]
-    for (i, j), d in zip(pos, (9, 7, 2)):
-        x = cx + i * step - s / 2; y = cy + j * step * 0.78 - s / 2 + n * 0.02
-        parts.append(tile(x, y, s, d, rot=-12 + i * 5))
-    parts.append(accents(cx + s * 0.12, cy - s * 0.62, s * 0.62))
-    parts.append("</g></svg>\n")
-    return "".join(parts)
+def kit_icon(full_bleed=False, safe=1.0):
+    """The supplied primary app icon, with outlined numerals. full_bleed fills the square (Apple, maskable)."""
+    svg = outline_digits((KIT / "equacross-app-icon.svg").read_text())
+    svg = svg.replace('width="1024" height="1024" ', '').replace('<svg ', '<svg role="img" aria-label="Equacross" ', 1)
+    svg = svg.replace('<defs>', '<title>Equacross</title><defs>', 1)
+    if full_bleed:
+        svg = svg.replace('<rect x="24" y="24" width="976" height="976" rx="220"/>', '<rect width="1024" height="1024"/>')
+        # stretch the 4x4 board to the edges
+        svg = svg.replace('<g opacity=".9">', '<g opacity=".9" transform="translate(512 512) scale(1.0505) translate(-512 -512)">', 1)
+    if safe != 1.0:
+        i = svg.index('<g transform="translate(84 150)')
+        j = svg.rindex('</svg>')
+        svg = svg[:i] + f'<g transform="translate(512 512) scale({safe}) translate(-512 -512)">' + svg[i:j] + '</g></svg>'
+    return svg if svg.endswith("\n") else svg + "\n"
 
 
-def icon_alt(n=512, plain_bg=False):
-    """A single cream tile carrying the coral spark. Reads clearly at favicon sizes."""
-    parts = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {n} {n}" role="img" aria-label="Equacross"><title>Equacross</title>']
-    if not plain_bg:
-        parts.append(f'<rect width="{n}" height="{n}" rx="{n * 0.225:.1f}" fill="#A9C79B"/>')
-        parts.append(f'<rect x="{n * 0.04:.1f}" y="{n * 0.04:.1f}" width="{n * 0.92:.1f}" height="{n * 0.92:.1f}" rx="{n * 0.2:.1f}" fill="{SAGE_D}"/>')
-    s = n * (0.78 if plain_bg else 0.62)
-    x = (n - s) / 2; y = (n - s) / 2 - n * 0.02
-    parts.append(tile(x, y, s, None, shadow=not plain_bg))
-    parts.append(accents(n / 2, y + s * 0.80, s * 0.78))
-    parts.append("</svg>\n")
-    return "".join(parts)
+def kit_alt():
+    svg = (KIT / "equacross-app-icon-alt.svg").read_text().replace('width="1024" height="1024" ', '')
+    return svg.replace('<svg ', '<svg role="img" aria-label="Equacross" ', 1).replace('<defs>', '<title>Equacross</title><defs>', 1) + "\n"
+
+
+def nav_mark():
+    """Small cream tile with a coral equals sign, as in the approved navigation bar."""
+    return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true">'
+            '<rect x="3" y="7" width="58" height="54" rx="13" fill="#E2D3AE"/><rect x="3" y="3" width="58" height="54" rx="13" fill="#FFF8E8" stroke="#E7D9B7" stroke-width="1.5"/>'
+            '<rect x="18" y="20" width="28" height="6.5" rx="3.25" fill="#C83C30"/><rect x="18" y="33" width="28" height="6.5" rx="3.25" fill="#C83C30"/></svg>\n')
 
 
 files = {
     "logo.svg": wordmark(tagline="A WORD GAME FOR NUMBERS"),
     "logo-wordmark.svg": wordmark(),
     "logo-wordmark-on-dark.svg": wordmark(equa=CREAM, cross="#F07261"),
-    "logo-on-dark.svg": wordmark(equa=CREAM, cross="#F07261", tagline="A WORD GAME FOR NUMBERS", tag_color=CREAM),
-    "icon.svg": icon_primary(),
-    "icon-maskable.svg": icon_primary(full_bleed=True, inset=0.78),
-    "icon-alt.svg": icon_alt(),
-    "favicon.svg": icon_alt(plain_bg=False),
+    "logo-on-dark.svg": wordmark(equa=CREAM, cross="#F07261", tagline="A WORD GAME FOR NUMBERS", tag_color="#B9C9B4"),
+    "icon.svg": kit_icon(),
+    "icon-full.svg": kit_icon(full_bleed=True),
+    "icon-maskable.svg": kit_icon(full_bleed=True, safe=0.8),
+    "icon-alt.svg": kit_alt(),
+    "favicon.svg": kit_alt(),
+    "nav-mark.svg": nav_mark(),
 }
 for name, svg in files.items():
     (OUT / name).write_text(svg, encoding="utf-8")
@@ -179,7 +194,7 @@ for name, svg in files.items():
 # ---------- rasterize with Chromium ----------
 from playwright.sync_api import sync_playwright
 rasters = [
-    ("icon.svg", "apple-touch-icon.png", 180), ("icon.svg", "icon-192.png", 192), ("icon.svg", "icon-512.png", 512),
+    ("icon-full.svg", "apple-touch-icon.png", 180), ("icon.svg", "icon-192.png", 192), ("icon.svg", "icon-512.png", 512), ("icon.svg", "icon-1024.png", 1024), ("icon-alt.svg", "icon-alt-512.png", 512),
     ("icon-maskable.svg", "icon-maskable-512.png", 512), ("icon-maskable.svg", "icon-maskable-192.png", 192),
     ("favicon.svg", "favicon-16.png", 16), ("favicon.svg", "favicon-32.png", 32), ("favicon.svg", "favicon-48.png", 48),
     ("logo.svg", "logo-1200.png", 1200), ("logo-wordmark.svg", "logo-wordmark-600.png", 600),

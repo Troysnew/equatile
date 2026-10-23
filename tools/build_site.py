@@ -15,7 +15,7 @@ NAV = [("how-to-play/", "How to play", "how"), ("support/", "Support", "support"
 
 def logo(pre, h=34):
     """The approved wordmark, with a light-on-dark version for dark mode."""
-    w = round(h * 4.05)
+    w = round(h * 3.948)
     return (f'<img class="logo-light" src="{pre}assets/brand/logo-wordmark.svg" alt="Equacross" width="{w}" height="{h}">'
             f'<img class="logo-dark" src="{pre}assets/brand/logo-wordmark-on-dark.svg" alt="Equacross" width="{w}" height="{h}">')
 
@@ -24,12 +24,13 @@ ICONS = {
     "trophy": '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M14 8h20v8a10 10 0 0 1-20 0z" fill="var(--coral)"/><path d="M14 11H8.5a4.5 4.5 0 0 0 5.7 6.6M34 11h5.5a4.5 4.5 0 0 1-5.7 6.6" fill="none" stroke="var(--coral)" stroke-width="3.2" stroke-linecap="round"/><rect x="21.5" y="25" width="5" height="8" rx="1.5" fill="var(--coral)"/><rect x="15" y="33" width="18" height="6" rx="2.5" fill="var(--coral)"/></svg>',
     "brain": '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M23 9.5a6 6 0 0 0-11 2.2 6 6 0 0 0-4.6 9.6 6 6 0 0 0 2.3 9.6A6 6 0 0 0 20 36.5a4.6 4.6 0 0 0 3 2z" fill="#7FA66C"/><path d="M25 9.5a6 6 0 0 1 11 2.2 6 6 0 0 1 4.6 9.6 6 6 0 0 1-2.3 9.6A6 6 0 0 1 28 36.5a4.6 4.6 0 0 1-3 2z" fill="#7FA66C"/><path d="M16 17c2 0 3.5 1.4 3.5 3.4M13.5 26c2.2-.3 4 .9 4.6 2.8M32 17c-2 0-3.5 1.4-3.5 3.4M34.5 26c-2.2-.3-4 .9-4.6 2.8" fill="none" stroke="#E2EBD6" stroke-width="2.4" stroke-linecap="round"/></svg>',
     "calendar": '<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="7" y="10" width="34" height="30" rx="6" fill="var(--coral)"/><rect x="7" y="10" width="34" height="9" rx="4" fill="#A93127"/><rect x="14" y="6" width="4" height="9" rx="2" fill="var(--forest-ink)"/><rect x="30" y="6" width="4" height="9" rx="2" fill="var(--forest-ink)"/><g fill="#FFF8E8"><rect x="13" y="23" width="6" height="5" rx="1.2"/><rect x="21" y="23" width="6" height="5" rx="1.2"/><rect x="29" y="23" width="6" height="5" rx="1.2"/><rect x="13" y="31" width="6" height="5" rx="1.2"/><rect x="21" y="31" width="6" height="5" rx="1.2"/></g></svg>',
+    "device": '<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="13" y="5" width="22" height="38" rx="5" fill="#7FA66C"/><rect x="16.5" y="10" width="15" height="24" rx="2" fill="#E2EBD6"/><circle cx="24" cy="38.5" r="1.8" fill="#E2EBD6"/><path d="M19.5 18.5h8.5l-2.6-2.6M28.5 25.5H20l2.6 2.6" fill="none" stroke="#193B2C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     "people": '<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="15" r="6.5" fill="#6FA0C9"/><path d="M12 38c0-7 5.4-12 12-12s12 5 12 12z" fill="#6FA0C9"/><circle cx="11.5" cy="19" r="4.6" fill="var(--blue)"/><path d="M3 37c0-5.2 3.8-9 8.5-9 2 0 3.8.6 5.2 1.7A15 15 0 0 0 11 37z" fill="var(--blue)"/><circle cx="36.5" cy="19" r="4.6" fill="var(--blue)"/><path d="M45 37c0-5.2-3.8-9-8.5-9-2 0-3.8.6-5.2 1.7A15 15 0 0 1 37 37z" fill="var(--blue)"/></svg>',
 }
 
 
-SPARK = ('<svg class="spark" viewBox="0 0 60 50" aria-hidden="true"><g stroke="var(--coral)" stroke-width="7" stroke-linecap="round" fill="none">'
-         '<line x1="14" y1="40" x2="5" y2="27"/><line x1="29" y1="37" x2="27" y2="12"/><line x1="44" y1="40" x2="54" y2="26"/></g></svg>')
+SPARK = ('<svg class="spark" viewBox="-14 -48 70 42" aria-hidden="true"><g stroke="var(--coral)" stroke-width="10" stroke-linecap="round" fill="none">'
+         '<line x1="0" y1="-19" x2="-8" y2="-34"/><line x1="17" y1="-21" x2="19" y2="-42"/><line x1="33" y1="-14" x2="49" y2="-27"/></g></svg>')
 
 
 def page(path, key, title, desc, body, base=None):
@@ -62,13 +63,14 @@ def page(path, key, title, desc, body, base=None):
 <link rel="apple-touch-icon" href="{pre}assets/brand/apple-touch-icon.png">
 <link rel="manifest" href="{pre}site.webmanifest">
 <link rel="preload" href="{pre}assets/fonts/nunito-sans-latin-900-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="{pre}assets/fonts/nunito-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{pre}assets/site.css">
 </head>
 <body data-page="{key}">
 <a class="skip" href="#main">Skip to content</a>
 <header class="site-head">
   <div class="wrap">
-    <a class="brand" href="{pre if pre else './'}" aria-label="Equacross home">{logo(pre, 34)}</a>
+    <a class="brand" href="{pre if pre else './'}" aria-label="Equacross home"><img class="brand-mark" src="{pre}assets/brand/nav-mark.svg" alt="" width="34" height="34">{logo(pre, 34)}</a>
     <nav class="nav" aria-label="Main">{nav}<a class="btn primary" href="{pre}play/">Play</a></nav>
   </div>
 </header>
@@ -125,10 +127,9 @@ HOME = f"""
         <span class="soon">iPhone app coming soon</span>
       </div>
     </div>
-    <figure class="hero-art" aria-label="The tiles 9, 7 and 2 in a row, which Equacross reads as 9 minus 7 equals 2">
-      <div class="hero-board" aria-hidden="true">{"".join(f'<i class="c{c}"></i>' for c in "bscsscsbsssssscsssbsssssc")}</div>
-      <div class="hero-tiles" aria-hidden="true"><span class="ht ht1">9</span><span class="ht ht2">7</span><span class="ht ht3">2</span>{SPARK}</div>
-      <figcaption class="hero-read"><span class="num">9 <span class="op">−</span> 7 <span class="op">=</span> 2</span><span class="ok">✓ a true line</span></figcaption>
+    <figure class="hero-art" aria-label="Three Equacross number tiles, 9, 7 and 2, on a game board">
+      <div class="hero-board" aria-hidden="true">{"".join(f'<i class="c{c}"></i>' for c in "lmbclmlmlmlmlmlbmlmlcmlml")}</div>
+      <span class="ht ht1" aria-hidden="true">9</span><span class="ht ht2" aria-hidden="true">7</span><span class="ht ht3" aria-hidden="true">2</span>{SPARK}
     </figure>
   </div>
 </section>
@@ -175,27 +176,39 @@ HOME = f"""
     </div>
     <div class="modes">
       <article class="mode">
+        <span class="mode-icon mi-trophy">{ICONS["trophy"]}</span>
+        <div class="mode-body">
         <span class="tag">Solo</span>
         <h3>Vs the computer</h3>
         <p>Three levels, from short safe plays to an opponent that hunts for the highest-scoring move every turn.</p>
         <div class="pills"><span class="pill">Easy</span><span class="pill">Medium</span><span class="pill">Hard</span></div>
+        </div>
       </article>
       <article class="mode">
+        <span class="mode-icon mi-people">{ICONS["people"]}</span>
+        <div class="mode-body">
         <span class="tag">Online</span>
         <h3>Vs a friend, anywhere</h3>
         <p>Start a game and send a six-character code. Take turns at your own pace. Each player sees only their own tiles, and the server checks every move.</p>
         <div class="pills"><span class="pill">Invite by code</span><span class="pill">No account needed</span></div>
+        </div>
       </article>
       <article class="mode">
+        <span class="mode-icon mi-device">{ICONS["device"]}</span>
+        <div class="mode-body">
         <span class="tag">Same device</span>
         <h3>Pass and play</h3>
         <p>Share one phone or tablet. Your rack stays hidden until you hand it over.</p>
+        </div>
       </article>
       <article class="mode">
+        <span class="mode-icon mi-calendar">{ICONS["calendar"]}</span>
+        <div class="mode-body">
         <span class="tag">Daily</span>
         <h3>The daily puzzle</h3>
         <p>A partly built board, a handful of tiles, and one goal: make every line true. Everyone gets the same puzzle each day.</p>
         <div class="pills"><span class="pill">New at midnight</span><span class="pill">Random puzzles too</span></div>
+        </div>
       </article>
     </div>
   </div>
