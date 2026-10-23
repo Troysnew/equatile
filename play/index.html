@@ -165,6 +165,19 @@ h1 .eq{color:var(--pencil)}
 .sheet-head h2{font-family:var(--f-display);font-size:1.35rem;margin:0;line-height:1.1}
 .sheet-sub{margin:2px 0 0;color:var(--muted);font-size:.88rem}
 .sheet-foot{bottom:0;padding-block:12px calc(12px + env(safe-area-inset-bottom, 0px));border-top:1px solid var(--padline)}
+.sheet > *{flex-shrink:0}
+.lay{display:flex;flex-direction:column;gap:10px}
+.lay-dir{display:flex;flex-direction:column;gap:4px;min-width:0}
+.lay-cap{font-size:.85rem;color:var(--muted)}
+.lay-cap b{color:var(--ink)}
+.lay-row{display:flex;gap:3px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+.ls{flex:0 0 30px;height:32px;border-radius:5px;display:grid;place-items:center;font:700 .62rem var(--f-num);background:var(--paper);color:var(--prem-ink);box-shadow:inset 0 0 0 1px var(--grid);position:relative}
+.ls.p2T{background:var(--p2t)} .ls.p3T{background:var(--p3t)} .ls.p2E{background:var(--p2e)} .ls.p3E{background:var(--p3e)}
+.ls.b{background:var(--circ-bg);color:var(--circ-ink);box-shadow:inset 0 -3px 0 var(--circ-edge);font-size:.95rem}
+.ls.g{box-shadow:inset 0 0 0 2px var(--ok)}
+.ls.m{background:var(--mine-bg);color:var(--mine-ink);box-shadow:inset 0 -3px 0 var(--mine-edge);font-size:.95rem}
+.ls.x::after{content:"";position:absolute;top:3px;right:3px;width:6px;height:6px;border-radius:50%;background:var(--pencil)}
+.ls.wall{flex-basis:auto;padding:0 6px;background:transparent;box-shadow:none;color:var(--muted);font:600 .7rem var(--f-body)}
 .calc{min-height:64px;background:var(--card);border:2px solid var(--ink);border-radius:10px;padding:8px;display:flex;flex-wrap:wrap;gap:4px;align-items:center}
 .calc .ph{color:var(--muted)}
 .pools{display:grid;grid-template-columns:1fr;gap:10px}
@@ -277,6 +290,7 @@ h1 .eq{color:var(--pencil)}
       <div><h2 id="wbTitle">Workbench</h2><p class="sheet-sub" id="wbDir"></p></div>
       <button class="btn" id="wbClose">Close</button>
     </header>
+    <div class="lay" id="wbLayout" aria-label="Where your tiles can go"></div>
     <div class="calc" id="wbScreen" aria-label="Calculator screen, tap an item to remove it"></div>
     <div class="pools">
       <div class="pool"><span class="lbl">Base from the board (gaps are empty squares)</span><div class="ptiles" id="wbBase"></div></div>
@@ -1272,7 +1286,7 @@ function stringCheck() {
   if (!fit) { say('bad', fail); return s; }
   if (wb.dirs.length > 1 && fit.dir !== wb.dirs[0]) say('info', `It didn’t work going ${dn(wb.dirs[0])}, so it goes ${dn(fit.dir)}.`);
   say('ok', `Fits on the board going ${dn(fit.dir)}${fit.res.runs.length > 1 ? `, and the ${fit.res.runs.length - 1 === 1 ? 'line it crosses is' : 'lines it crosses are'} true too` : ''}.`);
-  s.score = fit.res.total; s.bingo = fit.res.bingo; s.place = fit.pl;
+  s.score = fit.res.total; s.bingo = fit.res.bingo; s.place = fit.pl; s.dir = fit.dir;
   return s;
 }
 function noBaseCheck(s, digs, say) {
@@ -1287,6 +1301,41 @@ function noBaseCheck(s, digs, say) {
   say('ok', 'First play: goes across through the star.');
   s.score = res.total; s.bingo = res.bingo; s.place = pl;
   return s;
+}
+// Open squares in a direction, from the base outward, as far as your rack could reach.
+function layoutFor(dir) {
+  const wb = ui.wb, cells = wb.cells, reach = me().rack.length;
+  const step = dir === 'h' ? 1 : N, [dr, dc] = dir === 'h' ? [0, 1] : [1, 0];
+  const side = k => { const [r, c] = rc(k); return dir === 'h' ? [[r - 1, c], [r + 1, c]] : [[r, c - 1], [r, c + 1]]; };
+  const crosses = k => side(k).some(([x, y]) => get(S.board, null, x, y) != null);
+  const walk = (from, sign) => {
+    const out = []; let [r, c] = rc(from), wall = 'edge', wallD = null;
+    for (;;) {
+      r += dr * sign; c += dc * sign;
+      if (r < 0 || c < 0 || r >= N || c >= N) break;
+      const k = r * N + c;
+      if (S.board[k] != null) { wall = 'tile'; wallD = S.board[k]; break; }
+      out.push(k);
+    }
+    // the last open square before another tile would join that tile to your line
+    const usable = wall === 'tile' ? out.slice(0, -1) : out;
+    return { slots: usable.slice(0, reach), more: usable.length > reach, wall: usable.length > reach ? 'more' : wall, wallD, blocked: wall === 'tile' && out.length ? out[out.length - 1] : null };
+  };
+  return { dir, before: walk(cells[0], -1), after: walk(cells[cells.length - 1], 1), crosses };
+}
+function layoutHTML(L, preview) {
+  const name = L.dir === 'h' ? 'Across' : 'Down';
+  const put = new Map(preview ? preview.map(t => [t.k, t.d]) : []);
+  const slot = k => {
+    const d = put.get(k), pr = PREM[k];
+    const cls = 'ls' + (d != null ? ' m' : pr ? ' p' + pr : '') + (L.crosses(k) ? ' x' : '');
+    return `<span class="${cls}" title="${pr ? PNAME[pr] : 'plain square'}${L.crosses(k) ? ', crosses another line' : ''}">${d != null ? d : pr || ''}</span>`;
+  };
+  const wall = w => w.wall === 'edge' ? '<span class="ls wall">edge</span>' : w.wall === 'tile' ? `<span class="ls wall" title="Another tile is here">next to ${w.wallD}</span>` : '<span class="ls wall">…</span>';
+  const base = ui.wb.cells.map(k => S.board[k] != null ? `<span class="ls b">${S.board[k]}</span>` : slot(k).replace('class="ls', 'class="ls g')).join('');
+  const nb = L.before.slots.length, na = L.after.slots.length;
+  const cap = `<b>${name}${L.dir === 'v' ? ' (top to bottom)' : ''}:</b> room for ${nb}${L.before.more ? '+' : ''} before and ${na}${L.after.more ? '+' : ''} after`;
+  return `<div class="lay-dir"><span class="lay-cap">${cap}</span><div class="lay-row">${wall(L.before)}${L.before.slots.slice().reverse().map(slot).join('')}${base}${L.after.slots.map(slot).join('')}${wall(L.after)}</div></div>`;
 }
 function renderWB() {
   const back = $('wbBack');
@@ -1317,6 +1366,11 @@ function renderWB() {
   $('wbMath').innerHTML = (m.expr ? `<p class="expr">${esc(m.expr)}</p>` : '') + m.lines.map(line).join('');
   const s = stringCheck();
   ui.wbPlace = s.place;
+  if (wb.cells.length) {
+    $('wbLayout').hidden = false;
+    $('wbLayout').innerHTML = wb.dirs.map(d => layoutHTML(layoutFor(d), s.place && s.dir === d ? s.place : null)).join('')
+      + '<span class="lay-cap">Squares show bonuses. A red dot means a tile there would also make a line across your play, which has to be true too.</span>';
+  } else { $('wbLayout').hidden = true; $('wbLayout').innerHTML = ''; }
   $('wbStr').innerHTML = (s.digits ? `<p class="expr">${s.digits}</p>` : '') + s.lines.map(line).join('')
     + (s.readings.length ? `<div class="reads"><span class="msg info">The game can read it as:</span>${s.readings.slice(0, 6).map(e => eqHTML(e.parts)).join('')}${s.readings.length > 6 ? `<span class="msg info">and ${s.readings.length - 6} more</span>` : ''}</div>` : '')
     + (s.score != null ? `<div class="wscore"><span>Would score${s.bingo ? ' (all 7 tiles)' : ''}</span><span class="v">${s.score}</span></div>` : '');
