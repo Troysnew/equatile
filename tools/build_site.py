@@ -223,6 +223,7 @@ HOME = f"""
       <p>Any arrangement that works counts, even if it isn’t the one the puzzle started with.</p>
     </div>
     <div class="result" aria-label="Example shared result">
+      <span class="ex-tag">Example result</span>
       <span>Equacross Daily #1</span>
       <span class="sq" aria-hidden="true">🟥🟨🟩</span>
       <span class="meta">Solved in 3:41 · 2 checks · 1 reveal</span>

@@ -172,6 +172,7 @@ p { margin: 0; }
 .split .copy { display: flex; flex-direction: column; gap: 16px; }
 .split .copy p { color: var(--muted); font-size: 1.08rem; }
 .result { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-md); padding: 24px; font-weight: 800; display: flex; flex-direction: column; gap: 8px; max-width: 360px; box-shadow: var(--sh-card); }
+.result .ex-tag { align-self: flex-start; font: 800 .68rem var(--f-body); text-transform: uppercase; letter-spacing: .1em; color: var(--muted); background: var(--sage); padding: 3px 8px; border-radius: 999px; }
 .result .sq { font-size: 1.6rem; letter-spacing: .1em; }
 .result .meta { color: var(--muted); font-size: .92rem; font-weight: 600; }
 
