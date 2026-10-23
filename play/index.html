@@ -166,6 +166,17 @@ h1 .eq{color:var(--pencil)}
 .sheet-sub{margin:2px 0 0;color:var(--muted);font-size:.88rem}
 .sheet-foot{bottom:0;padding-block:12px calc(12px + env(safe-area-inset-bottom, 0px));border-top:1px solid var(--padline)}
 .sheet > *{flex-shrink:0}
+.glist{display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow-y:auto;margin:0 -4px;padding:0 4px}
+.grow{display:flex;gap:8px;align-items:stretch}
+.gopen{flex:1;min-width:0;text-align:left;display:flex;flex-direction:column;gap:2px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:10px 12px;cursor:pointer;font:500 .92rem var(--f-body)}
+.gopen:hover{border-color:var(--muted)}
+.grow.cur .gopen{border-color:var(--pencil);box-shadow:inset 3px 0 0 var(--pencil)}
+.gt{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gs{color:var(--muted);font-size:.85rem}
+.gs.you{color:var(--pencil);font-weight:700}
+.gmeta{display:flex;justify-content:space-between;gap:8px;color:var(--muted);font:600 .8rem var(--f-num)}
+.gdel{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:10px;padding:0 10px;cursor:pointer;font:600 .8rem var(--f-body);min-width:64px}
+.gdel.arm{background:var(--bad);border-color:var(--bad);color:#fff}
 /* stop iOS double-tap zoom on fast taps; pinch zoom still works */
 html{touch-action:manipulation}
 button,.btn,.key,.wt,.sop,.rt,.cell,.seg label{touch-action:manipulation}
@@ -237,7 +248,8 @@ button,.btn,.key,.wt,.sop,.rt,.cell,.seg label{touch-action:manipulation}
         <button class="btn" id="bPass">Pass</button>
         <button class="btn" id="bHint">Show a move</button>
         <button class="btn" id="bWb">Workbench</button>
-        <button class="btn ghost" id="bNew">New game</button>
+        <button class="btn ghost" id="bGames">My games</button>
+        <button class="btn" id="bNew">New game</button>
       </div>
     </section>
 
@@ -267,6 +279,7 @@ button,.btn,.key,.wt,.sop,.rt,.cell,.seg label{touch-action:manipulation}
           <li>× or ÷ equations earn <span class="k">+5</span>. Playing all 7 tiles earns <span class="k">+20</span>.</li>
           <li>Show a move costs part of the points of the move it shows, whether or not you play it: 50% against Easy, 75% against Medium, 100% against Hard or a person. From your 4th hint on, every hint costs 100%. You get one hint per turn: pressing it again shows the same move at no extra charge. If no move is found, it's free.</li>
           <li>The second player starts with 8 tiles instead of 7 to make up for going second. After their first play, racks refill to 7 as usual.</li>
+          <li>My games keeps every game you start on this device: games against the computer, pass and play, puzzles and online games. Switch between them any time; nothing is lost, including tiles you've placed but not played.</li>
           <li>Online: choose New game, then Online. Start a game to get a 6-character code, or join with a friend's code. Each player sees only their own tiles, and the server checks every move. Hints are off in online games.</li>
           <li>Tap a tile on the board, or drag across a line, to pick a base. A base can skip empty squares: tap the 6, then the 4 two squares away, and the Workbench knows one of your tiles has to fill the gap. Then open the Workbench to try math with the base and your tiles before you commit. The Workbench works without a base too, as scratch math. It's free.</li>
           <li>The game ends when the bag is empty and someone plays out, or after 6 scoreless turns. Leftover tile points count against you.</li>
@@ -555,6 +568,7 @@ function newGame(o) {
   const players = o.mode === 'ai'
     ? [{ name: o.p1 || 'You', ai: false }, { name: 'Computer', ai: true }]
     : [{ name: o.p1 || 'Player 1', ai: false }, { name: o.p2 || 'Player 2', ai: false }];
+  if (S) save();
   S = { board: Array(N * N).fill(null), players: players.map(p => ({ ...p, rack: [], score: 0 })), bag: fullBag(), turn: 0, scoreless: 0, log: [], over: false, mode: o.mode, level: o.level || 'medium', last: [], handoff: o.mode === 'pp', modal: null };
   S.players.forEach(draw);
   if (S.bag.length) S.players[1].rack.push(S.bag.pop()); // second player starts with 8 tiles
@@ -562,6 +576,11 @@ function newGame(o) {
 }
 async function newPuzzle(kind, level) {
   const id = todayId();
+  if (kind === 'daily') { // reopen today's daily instead of starting a second copy
+    const have = readIndex().list.find(e => e.mode === 'puzzle' && e.daily === id);
+    if (have && readGame(have.id)) return openGame(have.id);
+  }
+  if (S) save();
   const holes = kind === 'daily' ? LEVELS.medium.holes : LEVELS[level].holes;
   const seed = kind === 'daily' ? hashStr('equatile-daily-' + id) : (Math.random() * 4294967296) >>> 0;
   if (S) S.modal = null;
@@ -647,16 +666,20 @@ async function api(body) {
   if (!r.ok) throw new Error(out.error || 'The game server had a problem. Try again.');
   return out;
 }
-function applyServer(v) {
-  const prevTurn = S && isOn() ? S.turn : null;
-  S.board = v.board; S.last = v.last || []; S.log = v.log || []; S.turn = v.turn;
-  S.bag = Array(v.bag).fill(0);
-  S.players = [0, 1].map(i => {
+function mergeServer(G, v) {
+  G.board = v.board; G.last = v.last || []; G.log = v.log || []; G.turn = v.turn;
+  G.bag = Array(v.bag).fill(0);
+  G.players = [0, 1].map(i => {
     const p = v.players[i];
     return { name: p && p.name ? p.name : (i === 0 ? 'Player 1' : 'Waiting…'), score: p ? p.score : 0, ai: false, rack: i === v.seat ? v.rack : Array(p ? p.tiles : 0).fill(null) };
   });
-  S.over = v.status === 'over'; S.outIdx = v.outSeat;
-  Object.assign(S.online, { status: v.status, version: v.version, seat: v.seat, code: v.code });
+  G.over = v.status === 'over'; G.outIdx = v.outSeat;
+  Object.assign(G.online, { status: v.status, version: v.version, seat: v.seat, code: v.code });
+  if (G.pending) G.pending = G.pending.filter(t => G.board[t.k] == null && v.rack[t.ri] === t.d);
+}
+function applyServer(v) {
+  const prevTurn = S && isOn() ? S.turn : null;
+  mergeServer(S, v);
   if (prevTurn !== null && prevTurn !== v.turn) {
     // Keep planned tiles that still sit on empty squares; drop any the opponent covered.
     const before = ui.pending.length;
@@ -668,6 +691,7 @@ async function startOnline(kind, name, code) {
   ui.thinking = true; ui.msg = kind === 'create' ? 'Starting an online game…' : 'Joining the game…'; ui.err = false; render();
   try {
     const v = await api(kind === 'create' ? { action: 'create', name } : { action: 'join', name, code });
+    if (S) save();
     S = { board: [], players: [], bag: [], turn: 0, scoreless: 0, log: [], over: false, mode: 'online', last: [], handoff: false, modal: kind === 'create' ? 'invite' : null,
           online: { gameId: v.gameId, token: v.token, seat: v.seat, code: v.code, status: v.status, version: v.version } };
     resetUI(); applyServer(v); save(); listen();
@@ -757,9 +781,95 @@ setInterval(() => {
 }, 1000);
 
 /* ---------- persistence ---------- */
-const KEY = 'equatile.v2';
-function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
-function load() { try { const s = JSON.parse(localStorage.getItem(KEY)); return s && s.board ? s : null; } catch (e) { return null; } }
+// Every game has its own save. The index lists them for My games and remembers the open one.
+const KEY = 'equatile.v2', IDX = 'equatile.index', gkey = id => 'equatile.g.' + id;
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+function readIndex() { try { const ix = JSON.parse(localStorage.getItem(IDX)); if (ix && Array.isArray(ix.list)) return ix; } catch (e) {} return { list: [], cur: null }; }
+function writeIndex(ix) { try { localStorage.setItem(IDX, JSON.stringify(ix)); } catch (e) {} }
+function readGame(id) { try { const g = JSON.parse(localStorage.getItem(gkey(id))); return g && g.board ? g : null; } catch (e) { return null; } }
+function writeGame(G) { try { localStorage.setItem(gkey(G.id), JSON.stringify(G)); } catch (e) {} }
+function resultText(G) {
+  const [a, b] = G.players;
+  if (G.mode === 'online') { const mine = a && G.players[G.online.seat], theirs = G.players[1 - G.online.seat]; return mine.score > theirs.score ? `You won ${mine.score}–${theirs.score}` : mine.score < theirs.score ? `${theirs.name} won ${theirs.score}–${mine.score}` : `Tie ${mine.score}–${theirs.score}`; }
+  return a.score === b.score ? `Tie ${a.score}–${b.score}` : (a.score > b.score ? `${a.name === 'You' ? 'You' : a.name} won` : `${b.name} won`) + ` ${Math.max(a.score, b.score)}–${Math.min(a.score, b.score)}`;
+}
+function summarize(G) {
+  const P = G.players;
+  if (G.mode === 'puzzle') {
+    const z = G.puzzle, left = z.holes.filter(k => G.board[k] == null).length;
+    return { title: z.kind === 'daily' ? `Daily puzzle #${z.id}` : `Random puzzle · ${LEVELS[z.level].label}`, status: z.solved ? `Solved in ${fmtTime(z.elapsed)}` : `${left} square${left === 1 ? '' : 's'} left · ${fmtTime(z.elapsed)}`, score: '', you: false, done: z.solved, daily: z.kind === 'daily' ? z.id : null };
+  }
+  if (G.mode === 'online') {
+    const o = G.online, opp = P[1 - o.seat];
+    const title = o.status === 'waiting' ? `Online · code ${o.code}` : `Online vs ${opp.name}`;
+    const status = G.over ? resultText(G) : o.status === 'waiting' ? 'Waiting for someone to join' : G.turn === o.seat ? 'Your turn' : `${opp.name}’s turn`;
+    return { title, status, score: o.status === 'waiting' ? '' : `${P[o.seat].score}–${opp.score}`, you: !G.over && o.status === 'active' && G.turn === o.seat, done: G.over };
+  }
+  const title = G.mode === 'ai' ? `Vs computer · ${LEVELS[G.level].label}` : `Pass and play · ${P[0].name} vs ${P[1].name}`;
+  const status = G.over ? resultText(G) : G.mode === 'ai' ? (G.turn === 0 ? 'Your turn' : 'Computer’s turn') : `${P[G.turn].name}’s turn`;
+  return { title, status, score: `${P[0].score}–${P[1].score}`, you: !G.over && (G.mode === 'pp' || G.turn === 0), done: G.over };
+}
+function indexEntry(ix, G) {
+  const sum = summarize(G), sig = JSON.stringify(sum), old = ix.list.find(e => e.id === G.id);
+  const entry = { id: G.id, mode: G.mode, ...sum, sig, updated: old && old.sig === sig ? old.updated : Date.now() };
+  ix.list = [entry, ...ix.list.filter(e => e.id !== G.id)].sort((x, y) => y.updated - x.updated);
+  // keep every unfinished game and the 15 most recent finished ones
+  let done = 0;
+  for (const e of ix.list.slice()) if (e.done && ++done > 15) { ix.list = ix.list.filter(x => x !== e); try { localStorage.removeItem(gkey(e.id)); } catch (er) {} }
+}
+function save() {
+  if (!S) return;
+  if (!S.id) S.id = newId();
+  S.pending = ui.pending.map(t => ({ k: t.k, d: t.d, ri: t.ri }));
+  writeGame(S);
+  const ix = readIndex(); indexEntry(ix, S); ix.cur = S.id; writeIndex(ix);
+}
+let saveTimer = null;
+function saveSoon() { clearTimeout(saveTimer); saveTimer = setTimeout(save, 400); }
+function load() {
+  const ix = readIndex();
+  if (ix.cur) { const g = readGame(ix.cur); if (g) return g; }
+  if (ix.list.length) { const g = readGame(ix.list[0].id); if (g) return g; }
+  // first visit after this update: bring the single old save into My games
+  try { const old = JSON.parse(localStorage.getItem(KEY)); if (old && old.board) { old.id = newId(); localStorage.removeItem(KEY); return old; } } catch (e) {}
+  return null;
+}
+function restorePending() {
+  const rack = me().rack, pz = isPz();
+  ui.pending = (S.pending || []).filter(t => S.board[t.k] == null && rack[t.ri] === t.d && (!pz || S.puzzle.holes.includes(t.k)));
+}
+function openGame(id) {
+  if (ui.thinking) return;
+  const G = readGame(id); if (!G) return;
+  if (S && S.id !== id) save();
+  S = G; S.modal = null; resetUI(); restorePending();
+  const ix = readIndex(); ix.cur = id; writeIndex(ix);
+  render();
+  if (isOn()) { listen(); refresh(); } else maybeAI();
+}
+function deleteGame(id) {
+  try { localStorage.removeItem(gkey(id)); } catch (e) {}
+  const ix = readIndex(); ix.list = ix.list.filter(e => e.id !== id); if (ix.cur === id) ix.cur = null; writeIndex(ix);
+  if (S && S.id === id) {
+    S = null;
+    if (ix.list.length) { openGame(ix.list[0].id); S.modal = 'games'; render(); }
+    else { newGame({ mode: 'ai', level: 'medium' }); S.modal = 'games'; render(); }
+  } else render();
+}
+// Check every unfinished online game for new moves, so My games shows whose turn it is.
+async function refreshOnlineList() {
+  const ix = readIndex();
+  await Promise.all(ix.list.filter(e => e.mode === 'online' && !e.done && (!S || e.id !== S.id)).map(async e => {
+    const G = readGame(e.id); if (!G) return;
+    try {
+      const v = await api({ action: 'state', gameId: G.online.gameId, token: G.online.token });
+      if (v.version === G.online.version) return;
+      mergeServer(G, v); writeGame(G);
+      const ix2 = readIndex(); indexEntry(ix2, G); writeIndex(ix2);
+    } catch (er) {}
+  }));
+  if (S && S.modal === 'games') render(); else render();
+}
 
 /* ---------- rendering ---------- */
 const boardEl = $('board'), cells = [];
@@ -861,6 +971,10 @@ function render() {
   $('bWb').disabled = !plan || ui.swap;
   $('bWb').textContent = ui.circSel.length ? `Workbench · ${baseLabel(ui.circSel)}` : 'Workbench';
   $('bNew').disabled = ui.thinking;
+  $('bGames').disabled = ui.thinking;
+  const yourTurn = readIndex().list.filter(e => e.you && e.mode === 'online' && e.id !== S.id).length;
+  $('bGames').textContent = yourTurn ? `My games · ${yourTurn} your turn` : 'My games';
+  saveSoon();
   $('logPanel').hidden = pz;
   renderPreview(); if (!pz) renderLog(); renderModal(); renderWB();
 }
@@ -933,6 +1047,19 @@ function renderModal() {
       </div>
       ${ui.err && ui.msg ? `<p class="msg bad">${esc(ui.msg)}</p>` : ''}
       <div class="row-end"><button class="btn" id="mCancel">Cancel</button><button class="btn primary" id="mStart">Start</button></div>`;
+  } else if (S.modal === 'games') {
+    const ix = readIndex();
+    const ago = t => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'just now' : m < 60 ? `${m}m ago` : m < 1440 ? `${Math.round(m / 60)}h ago` : `${Math.round(m / 1440)}d ago`; };
+    html = `<h2>My games</h2>
+      <p>Every game saves on this device. Tap one to open it.</p>
+      <div class="glist">${ix.list.map(e => `<div class="grow ${e.id === S.id ? 'cur' : ''}">
+        <button class="gopen" data-open="${e.id}"><span class="gt">${esc(e.title)}${e.id === S.id ? ' · open now' : ''}</span>
+          <span class="gs ${e.you ? 'you' : ''}">${esc(e.status)}</span>
+          <span class="gmeta"><span>${e.score}</span><span>${ago(e.updated)}</span></span></button>
+        <button class="gdel ${ui.armDel === e.id ? 'arm' : ''}" data-del="${e.id}" aria-label="Delete ${esc(e.title)}">${ui.armDel === e.id ? 'Delete?' : 'Delete'}</button>
+      </div>`).join('') || '<p>No saved games yet.</p>'}</div>
+      ${ix.list.some(e => e.mode === 'online') ? '<p class="fine" style="font-size:.85rem">Deleting an online game only removes it from this device.</p>' : ''}
+      <div class="row-end"><button class="btn" id="mCancel">Close</button><button class="btn primary" id="mNewFromList">New game</button></div>`;
   } else if (S.modal === 'invite' && isOn()) {
     html = `<h2>Game ready</h2>
       <div class="invite"><p>Send this code to the person you want to play. They choose New game, then Online, then Join a game.</p>
@@ -979,6 +1106,13 @@ function renderModal() {
     else newGame({ mode, p1: $('n1').value.trim(), p2: $('n2').value.trim() });
   });
   on('mAgain', () => { S.modal = 'new'; render(); });
+  on('mNewFromList', () => { ui.armDel = null; S.modal = 'new'; render(); });
+  m.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => { ui.armDel = null; const id = b.dataset.open; if (id === S.id) { S.modal = null; render(); } else openGame(id); }));
+  m.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
+    const id = b.dataset.del;
+    if (ui.armDel !== id) { ui.armDel = id; m.dataset.sig = ''; return render(); }
+    ui.armDel = null; m.dataset.sig = ''; deleteGame(id);
+  }));
   on('mLook', () => { S.modal = S.modal === 'invite' ? null : 'closed'; render(); });
   on('mReady', () => { S.handoff = false; save(); render(); });
   on('mCopy', e => {
@@ -1095,6 +1229,7 @@ $('bHint').addEventListener('click', async () => {
   render();
 });
 $('bNew').addEventListener('click', () => { if (ui.thinking) return; S.modal = 'new'; render(); });
+$('bGames').addEventListener('click', () => { if (ui.thinking) return; ui.armDel = null; S.modal = 'games'; render(); refreshOnlineList(); });
 
 /* ---------- circle a line ---------- */
 const rc = k => [Math.floor(k / N), k % N];
@@ -1410,12 +1545,12 @@ function start(data) {
     S.modal = 'new'; render();
     return;
   }
-  if (S && isOn()) { resetUI(); render(); listen(); refresh(); return; }
+  if (S && (S.modal === 'new' || S.modal === 'games')) S.modal = null;
+  if (S && isOn()) { resetUI(); restorePending(); save(); render(); listen(); refresh(); refreshOnlineList(); return; }
   if (!S) return newGame({ mode: 'ai', level: 'medium' });
-  if (S.modal === 'new') S.modal = null;
-  resetUI();
+  resetUI(); restorePending();
   if (data && data.pending) ui.pending = data.pending;
-  render(); maybeAI();
+  save(); render(); maybeAI(); refreshOnlineList();
 }
 window.claude?.hot?.snapshot?.(() => ({ S, pending: ui.pending }));
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});

@@ -329,7 +329,7 @@ HOW = f"""
       <li>Choose <strong>New game</strong>, then <strong>Online</strong>, then <strong>Start a game</strong>. You get a 6-character code and a link to send.</li>
       <li>Your friend chooses <strong>Join a game</strong> and enters the code, or opens your link.</li>
       <li>Take turns whenever you like. The board updates when the other player moves.</li>
-      <li>Your game is saved on the device you started it on. Open Equatile on that device to pick it back up.</li>
+      <li>Your game is saved on the device you started or joined it on. Open <strong>My games</strong> there to switch to it. You can have several online games going at once.</li>
     </ul>
 
     <h2 id="puzzles">Puzzles</h2>
@@ -372,8 +372,9 @@ SUPPORT = f"""
       <details><summary>How do I play online with a friend?</summary><div>
         <p>Choose New game, then Online, then Start a game. Send your friend the 6-character code or the link. They choose Join a game and enter the code, or just open the link.</p>
       </div></details>
-      <details><summary>My online game disappeared. How do I get it back?</summary><div>
-        <p>Online games are saved on the device and browser you started or joined them on. Open Equatile there to pick the game back up. Clearing your browser’s data for this site, or using a private window, removes the saved game from that device.</p>
+      <details><summary>Where are my games? Can I play more than one at a time?</summary><div>
+        <p>Yes. Every game you start is saved on that device: games against the computer, pass and play, puzzles and online games. Tap <strong>My games</strong> to see them all and switch between them. Online games that are waiting on you say “Your turn.”</p>
+        <p>Games are saved in the browser you played them in. Clearing your browser’s data for this site, or using a private window, removes them from that device.</p>
       </div></details>
       <details><summary>When does the daily puzzle change?</summary><div>
         <p>At midnight in your own time zone. Everyone gets the same puzzle on the same date.</p>
