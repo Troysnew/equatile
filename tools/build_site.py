@@ -1,4 +1,4 @@
-"""Builds the static pages of equatile.com from one shared layout.
+"""Builds the static pages of equacross.com from one shared layout.
 
 Run from the repo root:  python3 tools/build_site.py
 The game itself lives in play/index.html and is not touched by this script.
@@ -6,8 +6,8 @@ The game itself lives in play/index.html and is not touched by this script.
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SITE = "https://equatile.com"
-EMAIL = "support@equatile.com"
+SITE = "https://equacross.com"
+EMAIL = "support@equacross.com"
 UPDATED = "October 22, 2026"
 FONTS = ("https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@500;700;800"
          "&family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800"
@@ -39,7 +39,7 @@ def page(path, key, title, desc, body, base=None):
 <meta name="description" content="{desc}">
 <link rel="canonical" href="{canon}">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="Equatile">
+<meta property="og:site_name" content="Equacross">
 <meta property="og:title" content="{title}">
 <meta property="og:description" content="{desc}">
 <meta property="og:url" content="{canon}">
@@ -58,7 +58,7 @@ def page(path, key, title, desc, body, base=None):
 <a class="skip" href="#main">Skip to content</a>
 <header class="site-head">
   <div class="wrap">
-    <a class="brand" href="{pre if pre else './'}" aria-label="Equatile home">{mark()}<span>Equa<span class="eq">tile</span></span></a>
+    <a class="brand" href="{pre if pre else './'}" aria-label="Equacross home">{mark()}<span>Equa<span class="eq">cross</span></span></a>
     <nav class="nav" aria-label="Main">{nav}<a class="btn primary" href="{pre}play/">Play</a></nav>
   </div>
 </header>
@@ -68,13 +68,13 @@ def page(path, key, title, desc, body, base=None):
 <footer class="site-foot">
   <div class="wrap">
     <div style="display:flex;flex-direction:column;gap:8px">
-      <a class="brand" href="{pre if pre else './'}">{mark()}<span>Equa<span class="eq">tile</span></span></a>
+      <a class="brand" href="{pre if pre else './'}">{mark()}<span>Equa<span class="eq">cross</span></span></a>
       <p class="fine">Every line is an equation.</p>
     </div>
     <nav class="foot-links" aria-label="Footer">
       <a href="{pre}play/">Play</a><a href="{pre}how-to-play/">How to play</a><a href="{pre}support/">Support</a><a href="{pre}privacy/">Privacy</a><a href="{pre}terms/">Terms</a>
     </nav>
-    <p class="fine" style="flex-basis:100%">© 2026 Equatile. Questions? <a href="mailto:{EMAIL}">{EMAIL}</a></p>
+    <p class="fine" style="flex-basis:100%">© 2026 Equacross. Questions? <a href="mailto:{EMAIL}">{EMAIL}</a></p>
   </div>
 </footer>
 <script src="{pre}assets/site.js" defer></script>
@@ -109,7 +109,7 @@ HOME = f"""
     <div class="hero-copy">
       <span class="eyebrow">A word game for numbers</span>
       <h1>Every line is an equation<span class="op">.</span></h1>
-      <p class="lede">Place digit tiles like Scrabble. Equatile finds the math hiding in every line you build, and scores it.</p>
+      <p class="lede">Place digit tiles like Scrabble. Equacross finds the math hiding in every line you build, and scores it.</p>
       <div class="cta-row">
         <a class="btn primary" href="play/">Play in your browser</a>
         <span class="soon">iPhone app coming soon</span>
@@ -175,7 +175,7 @@ HOME = f"""
       <p>Any arrangement that works counts, even if it isn’t the one the puzzle started with.</p>
     </div>
     <div class="result" aria-label="Example shared result">
-      <span>Equatile Daily #1</span>
+      <span>Equacross Daily #1</span>
       <span class="sq" aria-hidden="true">🟥🟨🟩</span>
       <span class="meta">Solved in 3:41 · 2 checks · 1 reveal</span>
     </div>
@@ -222,8 +222,8 @@ HOME = f"""
   </div>
 </section>
 """
-page("index.html", "home", "Equatile: every line is an equation",
-     "Equatile is a Scrabble-style game with number tiles. Build lines of digits, and the game finds the equation in each one. Play the computer, a friend, or the daily puzzle.",
+page("index.html", "home", "Equacross: every line is an equation",
+     "Equacross is a Scrabble-style game with number tiles. Build lines of digits, and the game finds the equation in each one. Play the computer, a friend, or the daily puzzle.",
      HOME, base="")
 
 # ---------------------------------------------------------------- how to play
@@ -231,7 +231,7 @@ HOW = f"""
 <section class="doc-hero"><div class="wrap">
   <span class="eyebrow">Rules</span>
   <h1>How to play</h1>
-  <p>Everything you need to play Equatile, from your first move to the daily puzzle.</p>
+  <p>Everything you need to play Equacross, from your first move to the daily puzzle.</p>
 </div></section>
 <div class="wrap doc">
   <nav class="toc" aria-label="On this page"><strong>On this page</strong>
@@ -340,12 +340,12 @@ HOW = f"""
       <li><strong>Reveal a tile</strong> places one correct tile for you and adds 30 seconds to your time.</li>
       <li>The daily puzzle is the same for everyone and changes at midnight your time. Random puzzles come in Easy (5 tiles), Medium (8) and Hard (11).</li>
     </ul>
-    <p><a class="btn primary" href="../play/">Play Equatile</a></p>
+    <p><a class="btn primary" href="../play/">Play Equacross</a></p>
   </article>
 </div>
 """
-page("how-to-play/index.html", "how", "How to play Equatile",
-     "The full rules of Equatile: how lines of digits are read as equations, placing tiles, scoring, online games and the daily puzzle.", HOW)
+page("how-to-play/index.html", "how", "How to play Equacross",
+     "The full rules of Equacross: how lines of digits are read as equations, placing tiles, scoring, online games and the daily puzzle.", HOW)
 
 # ---------------------------------------------------------------- support
 SUPPORT = f"""
@@ -359,7 +359,7 @@ SUPPORT = f"""
     <h2 style="font-size:1.4rem">Contact us</h2>
     <p>For help, bug reports, feedback or feature ideas, email:</p>
     <span class="mail">{EMAIL}</span>
-    <div class="copy-row"><a class="btn primary" href="mailto:{EMAIL}?subject=Equatile%20support">Send an email</a><button class="btn" type="button" data-copy="{EMAIL}">Copy address</button></div>
+    <div class="copy-row"><a class="btn primary" href="mailto:{EMAIL}?subject=Equacross%20support">Send an email</a><button class="btn" type="button" data-copy="{EMAIL}">Copy address</button></div>
     <p class="fine">If you’re reporting a problem with an online game, include the 6-character game code.</p>
   </div>
   <div class="prose">
@@ -382,7 +382,7 @@ SUPPORT = f"""
       <details><summary>Why did my score go down?</summary><div>
         <p>Using Show a move costs points, and at the end of the game the points on any tiles left in your rack are subtracted. See <a href="../how-to-play/#turns">turn options</a> and <a href="../how-to-play/#ending">ending the game</a>.</p>
       </div></details>
-      <details><summary>Does Equatile cost anything?</summary><div>
+      <details><summary>Does Equacross cost anything?</summary><div>
         <p>Playing in your browser is free. Details for the iPhone app will be listed on the App Store when it’s released.</p>
       </div></details>
       <details><summary>How do I delete my data?</summary><div>
@@ -393,8 +393,8 @@ SUPPORT = f"""
   </div>
 </div>
 """
-page("support/index.html", "support", "Equatile support",
-     "Get help with Equatile: common questions about rules, online games and the daily puzzle, and how to contact us.", SUPPORT)
+page("support/index.html", "support", "Equacross support",
+     "Get help with Equacross: common questions about rules, online games and the daily puzzle, and how to contact us.", SUPPORT)
 
 # ---------------------------------------------------------------- privacy
 PRIVACY = f"""
@@ -409,7 +409,7 @@ PRIVACY = f"""
     <a href="#use">How we use data</a><a href="#retention">How long we keep it</a><a href="#children">Children</a><a href="#choices">Your choices</a><a href="#changes">Changes</a><a href="#contact">Contact</a>
   </nav>
   <article class="prose">
-    <p>This policy explains what information Equatile (“Equatile,” “we,” “us”) collects when you use the Equatile website at equatile.com and the Equatile apps, and how it’s used.</p>
+    <p>This policy explains what information Equacross (“Equacross,” “we,” “us”) collects when you use the Equacross website at equacross.com and the Equacross apps, and how it’s used.</p>
 
     <h2 id="summary">Summary</h2>
     <ul>
@@ -420,7 +420,7 @@ PRIVACY = f"""
     </ul>
 
     <h2 id="device">Information stored on your device</h2>
-    <p>Equatile saves your current game, your daily puzzle results and your settings in your browser’s or device’s local storage, so you can pick up where you left off. This information stays on your device and isn’t sent to us, except for online games as described below.</p>
+    <p>Equacross saves your current game, your daily puzzle results and your settings in your browser’s or device’s local storage, so you can pick up where you left off. This information stays on your device and isn’t sent to us, except for online games as described below.</p>
 
     <h2 id="online">Online games</h2>
     <p>When you start or join an online game, we store on our server:</p>
@@ -432,7 +432,7 @@ PRIVACY = f"""
     <p>The other player in your game can see the name you entered, the board, the scores and the moves. They can’t see your tiles.</p>
 
     <h2 id="providers">Service providers</h2>
-    <p>Like any website, the services that deliver Equatile receive standard technical information, such as your IP address, browser type and the time of each request, and may keep it in their logs. We use:</p>
+    <p>Like any website, the services that deliver Equacross receive standard technical information, such as your IP address, browser type and the time of each request, and may keep it in their logs. We use:</p>
     <ul>
       <li><strong>Supabase</strong>, which hosts our server and database for online games.</li>
       <li><strong>GitHub Pages</strong>, which hosts this website.</li>
@@ -454,25 +454,25 @@ PRIVACY = f"""
     <p>We keep online game records so players can return to their games. We may delete old or inactive games at any time. If you email us, we keep your message and our reply for as long as we need them to help you.</p>
 
     <h2 id="children">Children</h2>
-    <p>Equatile is a general audience game. We don’t ask for anyone’s age, and the only personal information online play asks for is a name, which can be a nickname. We don’t knowingly collect personal information from children under 13. If you’re a parent or guardian and think your child has given us personal information, email us and we’ll delete it.</p>
+    <p>Equacross is a general audience game. We don’t ask for anyone’s age, and the only personal information online play asks for is a name, which can be a nickname. We don’t knowingly collect personal information from children under 13. If you’re a parent or guardian and think your child has given us personal information, email us and we’ll delete it.</p>
 
     <h2 id="choices">Your choices</h2>
     <ul>
       <li>You can play every mode except online without sending us any information.</li>
-      <li>You can remove everything stored on your device by clearing your browser’s or device’s data for Equatile.</li>
+      <li>You can remove everything stored on your device by clearing your browser’s or device’s data for Equacross.</li>
       <li>You can ask us to delete an online game by emailing us with its game code.</li>
     </ul>
 
     <h2 id="changes">Changes to this policy</h2>
-    <p>If we change how Equatile handles information, we’ll update this page and the date at the top.</p>
+    <p>If we change how Equacross handles information, we’ll update this page and the date at the top.</p>
 
     <h2 id="contact">Contact</h2>
     <p>Questions about privacy? Email <a href="mailto:{EMAIL}">{EMAIL}</a>.</p>
   </article>
 </div>
 """
-page("privacy/index.html", "privacy", "Equatile privacy policy",
-     "How Equatile handles information: no accounts, ads or tracking. Offline games stay on your device; online games store your chosen name and the game.", PRIVACY)
+page("privacy/index.html", "privacy", "Equacross privacy policy",
+     "How Equacross handles information: no accounts, ads or tracking. Offline games stay on your device; online games store your chosen name and the game.", PRIVACY)
 
 # ---------------------------------------------------------------- terms
 TERMS = f"""
@@ -483,13 +483,13 @@ TERMS = f"""
 </div></section>
 <div class="wrap doc">
   <nav class="toc" aria-label="On this page"><strong>On this page</strong>
-    <a href="#using">Using Equatile</a><a href="#conduct">Fair play</a><a href="#ip">Ownership</a><a href="#apple">App Store</a><a href="#warranty">No warranty</a><a href="#liability">Liability</a><a href="#changes">Changes</a><a href="#law">Governing law</a><a href="#contact">Contact</a>
+    <a href="#using">Using Equacross</a><a href="#conduct">Fair play</a><a href="#ip">Ownership</a><a href="#apple">App Store</a><a href="#warranty">No warranty</a><a href="#liability">Liability</a><a href="#changes">Changes</a><a href="#law">Governing law</a><a href="#contact">Contact</a>
   </nav>
   <article class="prose">
-    <p>These terms apply to the Equatile website at equatile.com and the Equatile apps. By using Equatile, you agree to them.</p>
+    <p>These terms apply to the Equacross website at equacross.com and the Equacross apps. By using Equacross, you agree to them.</p>
 
-    <h2 id="using">Using Equatile</h2>
-    <p>You may use Equatile for your own personal, non-commercial entertainment. We may change, pause or stop any part of Equatile, including online play, at any time.</p>
+    <h2 id="using">Using Equacross</h2>
+    <p>You may use Equacross for your own personal, non-commercial entertainment. We may change, pause or stop any part of Equacross, including online play, at any time.</p>
 
     <h2 id="conduct">Fair play</h2>
     <ul>
@@ -500,19 +500,19 @@ TERMS = f"""
     <p>We may delete games or block access when these terms are broken.</p>
 
     <h2 id="ip">Ownership</h2>
-    <p>The Equatile name, game design, artwork and software belong to Equatile. These terms don’t give you any ownership of them.</p>
+    <p>The Equacross name, game design, artwork and software belong to Equacross. These terms don’t give you any ownership of them.</p>
 
     <h2 id="apple">Apps from the App Store</h2>
-    <p>If you got Equatile from Apple’s App Store, Apple’s Licensed Application End User License Agreement also applies. If it conflicts with these terms, Apple’s agreement controls for the app.</p>
+    <p>If you got Equacross from Apple’s App Store, Apple’s Licensed Application End User License Agreement also applies. If it conflicts with these terms, Apple’s agreement controls for the app.</p>
 
     <h2 id="warranty">No warranty</h2>
-    <p>Equatile is provided “as is” and “as available,” without warranties of any kind, to the extent the law allows. We don’t promise that it will always be available or free of errors, or that saved games will never be lost.</p>
+    <p>Equacross is provided “as is” and “as available,” without warranties of any kind, to the extent the law allows. We don’t promise that it will always be available or free of errors, or that saved games will never be lost.</p>
 
     <h2 id="liability">Limitation of liability</h2>
-    <p>To the extent the law allows, Equatile isn’t liable for indirect, incidental or consequential damages, or for lost data, arising from your use of Equatile.</p>
+    <p>To the extent the law allows, Equacross isn’t liable for indirect, incidental or consequential damages, or for lost data, arising from your use of Equacross.</p>
 
     <h2 id="changes">Changes to these terms</h2>
-    <p>We may update these terms. When we do, we’ll change the date at the top. Continuing to use Equatile after an update means you accept the new terms.</p>
+    <p>We may update these terms. When we do, we’ll change the date at the top. Continuing to use Equacross after an update means you accept the new terms.</p>
 
     <h2 id="law">Governing law</h2>
     <p>These terms are governed by the laws of the State of Georgia, USA, except where the law of your home country requires otherwise.</p>
@@ -522,8 +522,8 @@ TERMS = f"""
   </article>
 </div>
 """
-page("terms/index.html", "terms", "Equatile terms of use",
-     "The terms for using the Equatile website and apps: fair play, ownership, and the usual legal fine print.", TERMS)
+page("terms/index.html", "terms", "Equacross terms of use",
+     "The terms for using the Equacross website and apps: fair play, ownership, and the usual legal fine print.", TERMS)
 
 # ---------------------------------------------------------------- 404
 NOTFOUND = """
@@ -531,9 +531,9 @@ NOTFOUND = """
   <div class="hero-copy">
     <span class="eyebrow">Page not found</span>
     <h1>404 isn’t an equation<span class="op">.</span></h1>
-    <p class="lede">And this page doesn’t exist. 4 − 0 = 4 would need subtracting 0, which Equatile doesn’t allow. The link may have a typo, or the page may have moved.</p>
-    <div class="cta-row"><a class="btn primary" href="/play/">Play Equatile</a><a class="btn" href="/">Go to the home page</a></div>
+    <p class="lede">And this page doesn’t exist. 4 − 0 = 4 would need subtracting 0, which Equacross doesn’t allow. The link may have a typo, or the page may have moved.</p>
+    <div class="cta-row"><a class="btn primary" href="/play/">Play Equacross</a><a class="btn" href="/">Go to the home page</a></div>
   </div>
 </div></section>
 """
-page("404.html", "404", "Page not found · Equatile", "This page doesn’t exist.", NOTFOUND, base="/")
+page("404.html", "404", "Page not found · Equacross", "This page doesn’t exist.", NOTFOUND, base="/")

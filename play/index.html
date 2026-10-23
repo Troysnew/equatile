@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
-<meta name="description" content="Play Equatile: a Scrabble-style game with number tiles where every line is an equation.">
+<meta name="description" content="Play Equacross: a Scrabble-style game with number tiles where every line is an equation.">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
 <body>
-<title>Equatile</title>
+<title>Equacross</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -253,7 +253,7 @@ button,.btn,.key,.wt,.sop,.rt,.cell,.seg label{touch-action:manipulation}
 <div class="app">
   <header class="top">
     <div>
-      <h1><a href="../" style="color:inherit;text-decoration:none" aria-label="Equatile home">Equa<span class="eq">tile</span></a></h1>
+      <h1><a href="../" style="color:inherit;text-decoration:none" aria-label="Equacross home">Equa<span class="eq">cross</span></a></h1>
       <p class="tag">Scrabble with number tiles. Every line you build has to read as a true equation.</p>
     </div>
     <div class="scores" id="scores"></div>
@@ -689,7 +689,7 @@ async function maybeAI() {
 async function api(body) {
   let r;
   try { r = await fetch(FN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SB_KEY }, body: JSON.stringify(body) }); }
-  catch (e) { throw new Error('Couldn’t reach the game server. Check your connection. Online play needs the hosted version of Equatile.'); }
+  catch (e) { throw new Error('Couldn’t reach the game server. Check your connection. Online play needs the hosted version of Equacross.'); }
   let out = {}; try { out = await r.json(); } catch (e) {}
   if (!r.ok) throw new Error(out.error || 'The game server had a problem. Try again.');
   return out;
@@ -798,7 +798,7 @@ function fmtTime(s) { s = Math.floor(s); return `${Math.floor(s / 60)}:${String(
 function shareText() {
   const P = S.puzzle;
   const sq = P.history.map(h => h === 'o' ? '🟩' : h === 'r' ? '🟨' : '🟥').join('');
-  const head = P.kind === 'daily' ? `Equatile Daily #${P.id}` : `Equatile Random · ${LEVELS[P.level].label}`;
+  const head = P.kind === 'daily' ? `Equacross Daily #${P.id}` : `Equacross Random · ${LEVELS[P.level].label}`;
   return `${head}\n${sq}\nSolved in ${fmtTime(P.elapsed)} · ${P.checks} check${P.checks === 1 ? '' : 's'}${P.reveals ? ` · ${P.reveals} reveal${P.reveals === 1 ? '' : 's'}` : ''}`;
 }
 setInterval(() => {
@@ -1709,7 +1709,32 @@ document.addEventListener('pointerup', () => endDrag(true));
 document.addEventListener('pointercancel', () => endDrag(false));
 
 /* ---------- boot ---------- */
+// One-time handoff from the old equatile.com address: saved games arrive in the link and are merged in.
+function importFromHash() {
+  const m = /^#import=([A-Za-z0-9_-]+)(?:~(.*))?$/.exec(location.hash || '');
+  if (!m) return;
+  let rest = m[2] ? '#' + m[2] : '';
+  try {
+    const bin = atob(m[1].replace(/-/g, '+').replace(/_/g, '/'));
+    const data = JSON.parse(decodeURIComponent(escape(bin)));
+    if (data && typeof data === 'object') for (const [k, v] of Object.entries(data)) {
+      if (!/^equatile\.[\w.-]+$/.test(k) || typeof v !== 'string' || v.length > 2e6) continue;
+      const cur = localStorage.getItem(k);
+      if (k === 'equatile.index') {
+        const inc = JSON.parse(v), mine = cur ? JSON.parse(cur) : { list: [], cur: null };
+        const ids = new Set(mine.list.map(e => e.id));
+        mine.list = [...mine.list, ...(inc.list || []).filter(e => e && e.id && !ids.has(e.id))].sort((x, y) => (y.updated || 0) - (x.updated || 0));
+        if (!mine.cur) mine.cur = inc.cur || null;
+        localStorage.setItem(k, JSON.stringify(mine));
+      } else if (k === 'equatile.daily') {
+        localStorage.setItem(k, JSON.stringify({ ...JSON.parse(v), ...(cur ? JSON.parse(cur) : {}) }));
+      } else if (cur == null) localStorage.setItem(k, v);
+    }
+  } catch (e) { /* a broken link just skips the import */ }
+  try { history.replaceState(null, '', location.pathname + rest); } catch (e) { location.hash = rest; }
+}
 function start(data) {
+  importFromHash();
   const jm = /^#join-([A-Za-z0-9]{6})$/.exec(location.hash || '');
   S = (data && data.S) || load();
   if (jm && !(S && isOn() && S.online.code === jm[1].toUpperCase())) {

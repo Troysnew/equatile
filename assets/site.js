@@ -1,4 +1,4 @@
-// Small helpers for the Equatile site: invite-link forwarding, the hero demo, copy buttons.
+// Small helpers for the Equacross site: invite-link forwarding, the hero demo, copy buttons.
 (function () {
   // Old invite links pointed at the site root. Send them to the game.
   if (/^#join-[A-Za-z0-9]{6}$/.test(location.hash) && document.body.dataset.page === 'home') {
