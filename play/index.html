@@ -997,6 +997,7 @@ function commitPlay(pl, res) {
   flashGlow(res.runs.flatMap(r => r.cells));
   const p = cur();
   if (!S.tutorial || p.ai) playToast(res, p.ai || S.mode === 'pp' ? p.name : null);
+  if (!p.ai) buzz('success');
   if (S.mode === 'ai' && !p.ai && !S.tutorial) recordPlay(res, pl);
   if (S.tutorial && !p.ai) { S.tutorial = null; S.modal = 'tutdone'; S.tutPts = res.total; S.tutEq = res.runs[0].eq.parts; S.tutOk = pl.length === TUT.length && TUT.every(g => pl.some(t => t.k === g.k && t.d === g.d)); tutMark(); }
   for (const t of pl) S.board[t.k] = t.d;
@@ -1509,13 +1510,13 @@ function renderModal() {
       <span class="code" id="invCode">${S.online.code}</span>
       <p>Or send them this link, which opens the join screen with the code filled in:</p>
       <pre class="share" id="shareTxt">${esc(inviteLink())}</pre></div>
-      <div class="row-end"><button class="btn" id="mCopy">Copy link</button><button class="btn primary" id="mLook">Go to the board</button></div>`;
+      <div class="row-end"><button class="btn" id="mCopy">${inApp() ? 'Share link' : 'Copy link'}</button><button class="btn primary" id="mLook">Go to the board</button></div>`;
   } else if (pz && S.puzzle.solved && S.modal !== 'closed') {
     const P = S.puzzle;
     html = `<h2>Solved!</h2>
       <pre class="share" id="shareTxt">${esc(shareText())}</pre>
       ${P.kind === 'daily' ? (ds => `<p class="streak"><b>${ds.cur}</b>-day streak${ds.best > ds.cur ? ` · best ${ds.best}` : ''}</p>`)(dailyStreak()) + `<p>Next daily puzzle in ${untilMidnight()}.</p>` : ''}
-      <div class="row-end"><button class="btn" id="mLook">See the board</button><button class="btn" id="mCopy">Copy result</button><button class="btn primary" id="mAgain">New game</button></div>`;
+      <div class="row-end"><button class="btn" id="mLook">See the board</button><button class="btn" id="mCopy">${inApp() ? 'Share result' : 'Copy result'}</button><button class="btn primary" id="mAgain">New game</button></div>`;
   } else if (S.over && S.modal !== 'closed') {
     const ranked = S.players.slice().sort((a, b) => b.score - a.score);
     const tie = ranked[0].score === ranked[1].score;
@@ -1569,6 +1570,7 @@ function renderModal() {
   on('mReady', () => { S.handoff = false; save(); render(); });
   on('mCopy', e => {
     const txt = S.modal === 'invite' ? inviteLink() : shareText(), btn = e.currentTarget;
+    if (inApp()) { nativeSend({ type: 'share', text: S.modal === 'invite' ? `Play Equacross with me. Join with code ${S.online.code}: ${txt}` : txt }); return; }
     const sel = () => { const r = document.createRange(); r.selectNodeContents($('shareTxt')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); btn.textContent = 'Selected, copy it'; };
     try { navigator.clipboard.writeText(txt).then(() => { btn.textContent = 'Copied'; }, sel); } catch (err) { sel(); }
   });
@@ -1592,7 +1594,7 @@ function onRack(i) {
   render();
 }
 function canPlace(k) { return S.board[k] == null && (!isPz() || S.puzzle.holes.includes(k)); }
-function placeAt(k, ri) { ui.pending.push({ k, d: me().rack[ri], ri }); ui.sel = null; ui.msg = ''; ui.err = false; ui.bad = null; }
+function placeAt(k, ri) { ui.pending.push({ k, d: me().rack[ri], ri }); ui.sel = null; ui.msg = ''; ui.err = false; ui.bad = null; buzz('light'); }
 function onCell(k, e) {
   if (!canPlan() || ui.swap) return;
   if (S.board[k] != null && !isPz()) { if (e && e.detail === 0) tapSelect(k); return; }
@@ -1636,9 +1638,10 @@ $('bPlay').addEventListener('click', () => {
   if (!res.ok) {
     const badRuns = res.runs.filter(r => r.err);
     ui.bad = new Set(badRuns.length ? badRuns.flatMap(r => r.cells) : ui.pending.map(t => t.k));
+    buzz('error');
     ui.msg = (badRuns.length === 1 ? badRuns[0].err + ' The red tiles show the line.' : badRuns.length ? res.msg + ' The red tiles show which lines.' : res.msg) || 'That play doesn’t work.'; ui.err = true; render(); return;
   }
-  if (isOn()) { const cells = res.runs.flatMap(r => r.cells), pl = ui.pending.slice(); return onlineAction({ action: 'play', placements: pl.map(t => ({ k: t.k, d: t.d })) }, v => { flashGlow(cells); playToast(res, null); recordPlay(res, pl); return `You scored ${v.scored}.`; }); }
+  if (isOn()) { const cells = res.runs.flatMap(r => r.cells), pl = ui.pending.slice(); return onlineAction({ action: 'play', placements: pl.map(t => ({ k: t.k, d: t.d })) }, v => { flashGlow(cells); playToast(res, null); recordPlay(res, pl); buzz('success'); return `You scored ${v.scored}.`; }); }
   commitPlay(ui.pending.slice(), res);
 });
 $('bRecall').addEventListener('click', () => { ui.pending = []; ui.msg = ''; ui.err = false; ui.bad = null; render(); });
@@ -2151,6 +2154,16 @@ function endDrag(drop) {
 document.addEventListener('pointerup', () => endDrag(true));
 document.addEventListener('pointercancel', () => endDrag(false));
 
+/* ---------- native app bridge ---------- */
+// Inside the Equacross iPhone/Android app, window.EQX_APP and window.EQX_NATIVE are injected by the app.
+// On the website these are undefined and every helper here does nothing.
+const inApp = () => !!(window.EQX_APP && window.EQX_NATIVE);
+function nativeSend(msg) { try { if (inApp()) window.EQX_NATIVE(msg); } catch (e) {} }
+function buzz(style) { nativeSend({ type: 'haptic', style }); }
+const nativeWaiters = {};
+function nativeAsk(msg, reply) { return new Promise(res => { nativeWaiters[reply] = res; nativeSend(msg); }); }
+window.__eqxFromNative = msg => { const f = msg && nativeWaiters[msg.type]; if (f) { delete nativeWaiters[msg.type]; f(msg); } };
+
 /* ---------- accounts ---------- */
 // Sign-in uses Supabase Auth (Apple, Google, email). Everything still works signed out; an account
 // carries stats, daily results and online games between devices.
@@ -2196,6 +2209,7 @@ async function accountSync(full) {
     if (full) {
       const me = await api({ action: 'me' });
       acct.name = me.name || acct.name || ''; acct.email = me.user.email; acct.provider = me.user.provider;
+      if (!acct.name && acct.pendingName) { try { const o = await api({ action: 'setname', name: acct.pendingName }); acct.name = o.name; } catch (e) {} } acct.pendingName = null;
       const have = new Set(readIndex().list.filter(e => e.mode === 'online').map(e => { const G = readGame(e.id); return G && G.online && G.online.gameId; }));
       let added = 0;
       for (const g of me.games) {
@@ -2260,7 +2274,7 @@ function accountHTML() {
   loadProviders();
   const pv = providers || {};
   if (acct.stage === 'code') return `<h2>Check your email</h2>
-      <p>We sent a sign-in email to <b>${esc(acct.email || '')}</b>. Tap the link in it, or enter the 6-digit code here.</p>
+      <p>We sent a sign-in email to <b>${esc(acct.email || '')}</b>. ${inApp() ? 'Enter the 6-digit code from it here.' : 'Tap the link in it, or enter the 6-digit code here.'}</p>
       <label class="field">Code<input id="aCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" value="${esc(acct.code || '')}"></label>
       ${msg}
       <div class="row-end"><button class="btn" id="aBack">Back</button><button class="btn primary" id="aVerify" ${acct.busy ? 'disabled' : ''}>Sign in</button></div>`;
@@ -2280,7 +2294,34 @@ function bindAccount(m) {
   const on = (id, f) => { const b = $(id); if (b) b.addEventListener('click', f); };
   const redirect = location.origin + location.pathname;
   const fail = e => { acct.busy = false; acct.msg = e && e.message ? e.message : 'Something went wrong. Try again.'; acct.err = true; m.dataset.sig = ''; render(); };
-  const oauth = provider => async () => { acct.busy = true; acct.msg = ''; try { if (S) save(); const { error } = await sbAuth.auth.signInWithOAuth({ provider, options: { redirectTo: redirect } }); if (error) throw error; } catch (e) { fail(e); } };
+  const oauth = provider => async () => {
+    acct.busy = true; acct.msg = ''; m.dataset.sig = ''; render();
+    try {
+      if (S) save();
+      if (inApp() && provider === 'apple' && window.EQX_APP.appleNative) {
+        const r = await nativeAsk({ type: 'apple' }, 'appleResult');
+        if (r.canceled) { acct.busy = false; m.dataset.sig = ''; return render(); }
+        if (r.error || !r.token) throw new Error(r.error || 'Apple sign-in didn’t finish. Try again.');
+        if (r.name && !acct.name) acct.pendingName = r.name;   // Apple shares the name only on the first sign-in
+        const { error } = await sbAuth.auth.signInWithIdToken({ provider: 'apple', token: r.token, nonce: r.nonce });
+        if (error) throw error;
+        acct.busy = false; m.dataset.sig = ''; return render();
+      }
+      if (inApp()) {
+        const { data, error } = await sbAuth.auth.signInWithOAuth({ provider, options: { redirectTo: 'equacross://auth', skipBrowserRedirect: true } });
+        if (error) throw error;
+        const r = await nativeAsk({ type: 'oauth', url: data.url }, 'oauthResult');
+        if (r.canceled) { acct.busy = false; m.dataset.sig = ''; return render(); }
+        if (r.error || !r.code) throw new Error(r.error || 'Sign-in didn’t finish. Try again.');
+        const x = await sbAuth.auth.exchangeCodeForSession(r.code);
+        if (x.error) throw x.error;
+        acct.busy = false; m.dataset.sig = ''; return render();
+      }
+      const { error } = await sbAuth.auth.signInWithOAuth({ provider, options: { redirectTo: redirect } });
+      if (error) throw error;
+      acct.busy = false; m.dataset.sig = ''; render();   // the page is navigating to the provider; don't stay locked if the user comes back
+    } catch (e) { fail(e); }
+  };
   on('aApple', oauth('apple')); on('aGoogle', oauth('google'));
   const em = $('aEmail'); if (em) em.addEventListener('input', () => { acct.email = em.value.trim(); });
   const cd = $('aCode'); if (cd) { cd.addEventListener('input', () => { acct.code = cd.value.replace(/\D/g, '').slice(0, 6); }); setTimeout(() => cd.focus(), 0); }
@@ -2288,7 +2329,7 @@ function bindAccount(m) {
     const email = (acct.email || '').trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { acct.msg = 'Enter a valid email address.'; acct.err = true; m.dataset.sig = ''; return render(); }
     acct.busy = true; acct.msg = ''; m.dataset.sig = ''; render();
-    try { const { error } = await sbAuth.auth.signInWithOtp({ email, options: { emailRedirectTo: redirect } }); if (error) throw error; acct.busy = false; acct.stage = 'code'; acct.code = ''; m.dataset.sig = ''; render(); }
+    try { const { error } = await sbAuth.auth.signInWithOtp({ email, options: { emailRedirectTo: inApp() ? 'https://equacross.com/play/' : redirect } }); if (error) throw error; acct.busy = false; acct.stage = 'code'; acct.code = ''; m.dataset.sig = ''; render(); }
     catch (e) { fail(/not authorized/i.test(e.message || '') ? new Error('We can’t send email to that address yet. Try Google or Apple, or try again later.') : e); }
   });
   on('aBack', () => { acct.stage = 'pick'; acct.msg = ''; m.dataset.sig = ''; render(); });
