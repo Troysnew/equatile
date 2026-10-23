@@ -469,30 +469,72 @@ body{font-size:15px;-webkit-font-smoothing:antialiased}
 .wbmode.base{background:var(--forest);color:var(--cream)}
 .wbtip{background:var(--card);border:1.5px solid var(--line);border-left:4px solid var(--pencil);border-radius:12px;padding:10px 12px;font-size:.88rem;line-height:1.45;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
 .wbtip .btn{padding:5px 12px;font-size:.82rem}
-/* guided first move */
-.coach{position:fixed;z-index:25;background:var(--forest);color:var(--cream);border-radius:16px;padding:14px 16px 12px;box-shadow:0 18px 40px -12px rgba(12,34,25,.55);font-size:.92rem;line-height:1.45;animation:coachIn .2s var(--ease)}
-.coach b{color:#fff}
-.coach p{margin:0 0 8px}
-.coach::before{content:"";position:absolute;left:calc(var(--ax,50%) - 8px);width:16px;height:16px;background:var(--forest);transform:rotate(45deg);border-radius:3px}
-.coach[data-side="below"]::before{top:-6px}
-.coach[data-side="above"]::before{bottom:-6px}
-.coach[data-side=""]::before{display:none}
-.coach .crow{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:4px}
-.coach .linkbtn{color:#C9D8C2}
-.coach .btn.primary{padding:7px 16px}
+/* guided first move: coachmark, step tag, highlights, pointer, equation chip, success modal */
+.brandmark{display:inline-flex;align-items:center;gap:8px}
+.brandmark .hdr-mark{height:30px;width:30px}
+@media (max-width:520px){.brandmark .hdr-mark{height:26px;width:26px}}
+@media (max-width:400px){.brandmark{gap:6px}.brandmark .hdr-mark{height:24px;width:24px}.brandmark img.logo-light,.brandmark img.logo-dark{height:26px}.top-nav{gap:4px}.nav-btn{font-size:.74rem;padding:6px 8px}}
+.coach{position:fixed;z-index:25;transition:top .2s var(--ease),left .2s var(--ease)}
+.coach.swap .coach-card{animation:coachIn .22s var(--ease)}
+.coach-card{background:var(--forest);color:#F3F6EE;border-radius:18px;padding:16px 18px 12px;box-shadow:0 20px 40px -14px rgba(12,34,25,.6),0 2px 0 rgba(0,0,0,.08);font-size:.93rem;line-height:1.45}
+.coach-card h3{font:900 1.3rem/1.15 var(--f-body);letter-spacing:-.01em;color:#fff;margin:8px 0 6px}
+.coach-card p{margin:0 0 8px;color:#DCE6D8}
+.coach-card b{color:#fff}
+.tstep{display:inline-block;background:var(--coral);color:#fff;font:800 .78rem/1 var(--f-body);padding:5px 10px 6px;border-radius:999px}
+.coach .crow{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:6px;min-height:40px}
+.coach .linkbtn{color:#F3F6EE;font-weight:700;padding:8px 0}
+.coach .btn.primary{padding:10px 22px;font-size:1rem;background:var(--coral);border-color:var(--coral);color:#fff}
+.coach-chip{position:absolute;left:50%;bottom:calc(100% + 10px);transform:translateX(-50%);white-space:nowrap;animation:chipIn .3s var(--ease)}
 .linkbtn{background:none;border:0;padding:0;font:inherit;font-weight:700;color:var(--pencil);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
-.coach-target{position:relative;z-index:3;animation:coachPulse 1.4s ease-in-out infinite;outline:3px solid var(--pencil);outline-offset:2px;border-radius:10px}
-.cell.coach-target{outline-offset:-3px;border-radius:4px}
-@keyframes coachPulse{0%,100%{outline-color:var(--pencil)}50%{outline-color:color-mix(in srgb,var(--pencil) 30%,transparent)}}
-@keyframes coachIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-.tutlist{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:6px;color:var(--muted)}
-@media (prefers-reduced-motion: reduce){.coach,.coach-target,.chip.turned,.tile.pending,.playtoast{animation:none!important;transform:none}.playtoast{transform:translate(-50%,0)!important}}
+/* equation chip */
+.eqchip{display:inline-flex;align-items:center;gap:8px;background:var(--forest);color:#fff;border-radius:999px;padding:7px 16px;font-weight:900;box-shadow:0 10px 24px -8px rgba(12,34,25,.5)}
+.eqchip .eqline{font-size:1.1rem;color:#fff;gap:.25em;flex-wrap:nowrap;white-space:nowrap}
+.eqchip .op{color:#fff}
+.eqchip .ck{width:20px;height:20px;color:#5FD08A}
+.eqchip .pp{color:#5FD08A;font-size:1.1rem}
+.eqchip.big{padding:9px 20px}.eqchip.big .eqline,.eqchip.big .pp{font-size:1.3rem}.eqchip.big .ck{width:24px;height:24px}
+.playtoast .ck{width:18px;height:18px;color:#5FD08A;align-self:center}
+/* highlighted rack tile and board square */
+.rt.coach-tile{box-shadow:inset 0 -5px 0 #DCCCA4,0 0 0 3px var(--coral),0 0 18px 4px color-mix(in srgb,var(--coral) 45%,transparent);animation:tilePulse 1.4s ease-in-out infinite;z-index:2}
+.cell.coach-square{background:var(--cream)!important;box-shadow:inset 0 0 0 3px var(--coral),0 0 14px 3px color-mix(in srgb,var(--coral) 40%,transparent);z-index:2;border-radius:6px;animation:squarePulse 1.4s ease-in-out infinite}
+.cell.coach-square .star{opacity:.5}
+.cell.landed .tile{animation:landed .6s var(--ease)}
+.coach-target{position:relative;z-index:3;box-shadow:0 0 0 3px var(--coral),0 0 16px 3px color-mix(in srgb,var(--coral) 45%,transparent)!important;animation:tilePulse 1.4s ease-in-out infinite}
+@keyframes tilePulse{0%,100%{filter:none}50%{filter:drop-shadow(0 0 6px color-mix(in srgb,var(--coral) 55%,transparent))}}
+@keyframes squarePulse{0%,100%{box-shadow:inset 0 0 0 3px var(--coral),0 0 8px 1px color-mix(in srgb,var(--coral) 30%,transparent)}50%{box-shadow:inset 0 0 0 3px var(--coral),0 0 18px 5px color-mix(in srgb,var(--coral) 50%,transparent)}}
+@keyframes landed{0%{box-shadow:0 0 0 0 #5FD08A}40%{box-shadow:0 0 0 4px #5FD08A,0 0 16px #5FD08A}100%{box-shadow:inset 0 -.12em 0 #DCCCA4}}
+@keyframes coachIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes chipIn{from{opacity:0;transform:translate(-50%,6px) scale(.9)}to{opacity:1;transform:translate(-50%,0)}}
+/* pointing hand */
+.coach-hand{position:fixed;z-index:26;width:44px;height:50px;pointer-events:none;animation:tap 1.2s ease-in-out infinite;filter:drop-shadow(0 4px 6px rgba(12,34,25,.3))}
+.coach-hand svg{width:100%;height:100%}
+@keyframes tap{0%,100%{transform:translateY(6px)}45%{transform:translateY(0)}55%{transform:translateY(0) scale(.94)}}
+/* success modal */
+.modal.tutmodal{position:relative;overflow:visible;padding:40px 26px 24px;gap:12px;animation:modalIn .3s var(--ease)}
+.tut-chip{position:absolute;left:50%;top:0;transform:translate(-50%,-50%);animation:chipIn .35s var(--ease) .1s both}
+.tut-h{display:flex;align-items:center;gap:10px;font:900 clamp(1.3rem,5.6vw,1.6rem)/1.1 var(--f-body)!important;letter-spacing:-.02em;margin:4px 0 2px}
+.tut-spark{width:34px;height:22px;flex:none;animation:sparkPop .5s var(--ease) .2s both}
+@keyframes sparkPop{from{opacity:0;transform:scale(.4) rotate(-10deg)}to{opacity:1;transform:none}}
+@keyframes modalIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+.tut-note{margin:0;color:var(--muted)}
+.tut-list{list-style:none;margin:2px 0;padding:0;display:flex;flex-direction:column;gap:12px}
+.tut-list li{display:grid;grid-template-columns:40px 1fr;gap:12px;align-items:center;color:var(--muted);line-height:1.35}
+.ti{width:40px;height:40px;border-radius:50%;display:grid;place-items:center}
+.ti-ok{background:#2E9A5A;color:#fff}.ti-ok .ck{width:22px;height:22px}
+.ti-line{border-radius:10px;background:var(--paper)}.ti-line i{width:18px;height:18px;border:2.5px solid var(--forest);border-radius:4px}
+.ti-prem{border-radius:10px;grid-template-columns:1fr 1fr;gap:2px;padding:3px;overflow:hidden}
+.ti-prem i{width:100%;height:100%;border-radius:4px}.ti-prem i:nth-child(1){background:#EE9C92}.ti-prem i:nth-child(2){background:#F4D0CB}.ti-prem i:nth-child(3){background:#CFE0EE}.ti-prem i:nth-child(4){background:#91B9D8}
+.tut-ready{text-align:center;font-weight:900;margin:4px 0 0}
+.tut-go{width:100%;min-height:48px;font-size:1.05rem!important}
+.tutlist{margin:0;padding-left:1.2em}
+@media (prefers-reduced-motion: reduce){.coach-hand,.coach-card,.coach-chip,.rt.coach-tile,.cell.coach-square,.cell.landed .tile,.modal.tutmodal,.tut-chip,.tut-spark,.coach,.coach-target,.chip.turned,.tile.pending,.playtoast{animation:none!important;transform:none}.playtoast{transform:translate(-50%,0)!important}}
 </style>
 
 <div class="app">
-<div class="coach" id="coach" role="dialog" aria-live="polite" hidden></div>
+<div class="coach" id="coach" role="dialog" aria-label="Tutorial" aria-live="polite" hidden></div>
+<div class="coach-hand" id="coachHand" aria-hidden="true" hidden></div>
   <header class="top">
-    <h1 style="margin:0"><a class="brandmark" href="../" aria-label="Equacross home"><img class="logo-light" src="../assets/brand/logo-wordmark.svg" alt="Equacross" width="190" height="45"><img class="logo-dark" src="../assets/brand/logo-wordmark-on-dark.svg" alt="Equacross" width="190" height="45"></a></h1>
+    <h1 style="margin:0"><a class="brandmark" href="../" aria-label="Equacross home"><img class="hdr-mark" src="../assets/brand/nav-mark.svg" alt="" width="30" height="30"><img class="logo-light" src="../assets/brand/logo-wordmark.svg" alt="Equacross" width="190" height="45"><img class="logo-dark" src="../assets/brand/logo-wordmark-on-dark.svg" alt="Equacross" width="190" height="45"></a></h1>
     <nav class="top-nav" aria-label="Games"><button class="btn nav-btn" id="bGames">My games</button><button class="btn nav-btn" id="bNew">New game</button></nav>
     <div class="scores" id="scores"></div>
   </header>
@@ -874,7 +916,7 @@ function playToast(res, who) {
   const r = boardEl.getBoundingClientRect();
   const t = document.createElement('div');
   t.className = 'playtoast'; t.setAttribute('role', 'status');
-  t.innerHTML = (who ? `<span class="pw">${esc(who)}</span>` : '') + res.runs.slice(0, 2).map(x => eqHTML(x.eq.parts)).join('<span class="sep">·</span>') + (res.runs.length > 2 ? '<span class="sep">…</span>' : '') + `<span class="pp">+${res.total}</span>`;
+  t.innerHTML = (who ? `<span class="pw">${esc(who)}</span>` : '') + res.runs.slice(0, 2).map(x => eqHTML(x.eq.parts)).join('<span class="sep">·</span>') + (res.runs.length > 2 ? '<span class="sep">…</span>' : '') + CHECK + `<span class="pp">+${res.total}</span>`;
   t.style.left = (r.left + r.width / 2) + 'px'; t.style.top = (r.top + Math.min(r.height * 0.12, 60)) + 'px';
   document.body.appendChild(t);
   setTimeout(() => t.remove(), 1900);
@@ -928,7 +970,7 @@ const humanTurn = () => S && !S.over && !ui.thinking && (isPz() ? !S.puzzle.solv
 function commitPlay(pl, res) {
   flashGlow(res.runs.flatMap(r => r.cells));
   const p = cur();
-  playToast(res, p.ai || S.mode === 'pp' ? p.name : null);
+  if (!S.tutorial || p.ai) playToast(res, p.ai || S.mode === 'pp' ? p.name : null);
   if (S.mode === 'ai' && !p.ai && !S.tutorial) recordPlay(res, pl);
   if (S.tutorial && !p.ai) { S.tutorial = null; S.modal = 'tutdone'; S.tutPts = res.total; S.tutEq = res.runs[0].eq.parts; S.tutOk = pl.length === TUT.length && TUT.every(g => pl.some(t => t.k === g.k && t.d === g.d)); tutMark(); }
   for (const t of pl) S.board[t.k] = t.d;
@@ -1362,11 +1404,17 @@ function renderModal() {
   let html = '';
   const pz = isPz();
   if (S.modal === 'tutdone') {
-    html = `<h2>That’s the whole idea</h2>
-      <p>${S.tutOk ? 'You placed 9, 7 and 2, and Equacross read the line as' : 'Nice play. Equacross read your line as'} <b>${esc((S.tutEq || ['9', '−', '7', '=', '2']).join(' '))}</b> for <b>${S.tutPts || 0} points</b>.</p>
-      <ul class="tutlist"><li>Every line of touching tiles, across and down, has to be a true equation.</li><li>Build off tiles already on the board: longer lines score every tile in them.</li><li>Colored squares double or triple a tile (T) or the whole equation (E). × and ÷ earn +5.</li></ul>
-      <p>This game keeps going against the computer. Good luck.</p>
-      <div class="row-end"><button class="btn primary" id="mTutGo">Keep playing</button></div>`;
+    const eq = S.tutEq || ['9', '−', '7', '=', '2'];
+    html = `<div class="tut-chip">${eqChipHTML(eq, `<span id="tutPts" data-to="${S.tutPts || 0}">${S.tutPts || 0}</span>`)}</div>
+      <h2 class="tut-h"><svg class="tut-spark" viewBox="-14 -48 70 42" aria-hidden="true"><g stroke="#C83C30" stroke-width="10" stroke-linecap="round"><line x1="0" y1="-19" x2="-8" y2="-34"/><line x1="17" y1="-21" x2="19" y2="-42"/><line x1="33" y1="-14" x2="49" y2="-27"/></g></svg>That’s the whole idea!</h2>
+      ${S.tutOk ? '' : `<p class="tut-note">Nice play. Equacross read your line as <b>${esc(eq.join(' '))}</b> for <b>${S.tutPts || 0} points</b>.</p>`}
+      <ul class="tut-list">
+        <li><span class="ti ti-ok">${CHECK}</span><span>Every line touching your tiles, across and down, has to be a true equation.</span></li>
+        <li><span class="ti ti-line"><i></i></span><span>Longer lines score every tile in them.</span></li>
+        <li><span class="ti ti-prem"><i></i><i></i><i></i><i></i></span><span>Colored squares can boost a tile or the whole equation.</span></li>
+      </ul>
+      <p class="tut-ready">Now you’re ready to play.</p>
+      <button class="btn primary tut-go" id="mTutGo">Keep playing</button>`;
   } else if (S.modal === 'new') {
     const mode = ui.joinCode ? 'online' : S.mode;
     const lvl = S.level || 'medium';
@@ -1446,12 +1494,19 @@ function renderModal() {
     html = `<h2>${esc(cur().name)}, you’re up</h2><p>Pass the device, then show your tiles.</p>
       <div class="row-end"><button class="btn primary" id="mReady">Show my tiles</button></div>`;
   }
+  m.classList.toggle('tutmodal', S.modal === 'tutdone');
   ov.hidden = !html;
   if (!html) { m.innerHTML = ''; m.dataset.sig = ''; return; }
   if (m.dataset.sig === html) return;
   m.dataset.sig = html; m.innerHTML = html;
   const on = (id, f) => { const b = $(id); if (b) b.addEventListener('click', f); };
   on('mTutGo', () => { S.modal = null; save(); render(); maybeAI(); });
+  const tp = $('tutPts');
+  if (tp && !matchMedia('(prefers-reduced-motion: reduce)').matches) { // count the score up
+    const to = +tp.dataset.to, t0 = performance.now();
+    const tick = t => { const f = Math.min(1, (t - t0) / 500); tp.textContent = Math.round(to * f * (2 - f)); if (f < 1) requestAnimationFrame(tick); };
+    tp.textContent = '0'; requestAnimationFrame(tick);
+  }
   on('mCancel', () => { ui.joinCode = ''; if (ui.err) { ui.msg = ''; ui.err = false; } S.modal = (S.over || (isPz() && S.puzzle.solved)) ? 'closed' : null; render(); });
   on('mStart', () => {
     const mode = m.querySelector('input[name=mode]:checked').value;
@@ -2064,7 +2119,7 @@ document.addEventListener('pointercancel', () => endDrag(false));
 
 /* ---------- guided first move ---------- */
 const TUTKEY = 'equatile.tutorial';
-const TUT = [{ d: 9, k: CENTER }, { d: 7, k: CENTER + 1 }, { d: 2, k: CENTER + 2 }];
+const TUT = [{ d: 9, k: CENTER - 1 }, { d: 7, k: CENTER }, { d: 2, k: CENTER + 1 }]; // 9 7 2 across the star: 9 − 7 = 2
 function tutSeen() { try { return !!localStorage.getItem(TUTKEY); } catch (e) { return true; } }
 function tutMark() { try { localStorage.setItem(TUTKEY, 'done'); } catch (e) {} }
 function startTutorial() {
@@ -2075,7 +2130,7 @@ function startTutorial() {
   for (const d of want) { const i = S.bag.lastIndexOf(d); if (i >= 0) { S.bag.splice(i, 1); p.rack.push(d); } }
   draw(p); shuffle(S.bag); shuffle(p.rack);
   S.tutorial = { step: 'intro' };
-  resetUI(); save(); render();
+  resetUI(); save(); scrollTo(0, 0); render();
 }
 function tutState() {
   // Which guided placement is next, and whether anything is off-script.
@@ -2084,50 +2139,90 @@ function tutState() {
   const next = TUT.find(g => !pend.some(t => t.k === g.k && t.d === g.d));
   return { wrong, next, selOk: next && ui.sel != null && rack[ui.sel] === next.d };
 }
+// Reusable pieces: step indicator, equation chip, pointing hand.
+const stepTag = n => `<span class="tstep">${n} of 5</span>`;
+const CHECK = '<svg class="ck" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+function eqChipHTML(parts, pts, big) { return `<span class="eqchip${big ? ' big' : ''}">${eqHTML(parts)}${CHECK}<span class="pp">+${pts}</span></span>`; }
+const HAND = '<svg viewBox="0 -7 48 54" aria-hidden="true"><g stroke="#C83C30" stroke-width="3" stroke-linecap="round"><path d="M13 2l-4-3.5M23.5 -1v-5M34 2l4-3.5"/></g><path d="M20 30V9a3.5 3.5 0 0 1 7 0v10a3.5 3.5 0 0 1 7 0v2a3.5 3.5 0 0 1 7 0v9c0 8-6 14-14 14h-2c-5 0-8-3-11-7l-6-8a3.4 3.4 0 0 1 5-4.6z" fill="#fff" stroke="#193B2C" stroke-width="3" stroke-linejoin="round"/><path d="M27 19v6M34 21v5" stroke="#193B2C" stroke-width="2.4" stroke-linecap="round"/></svg>';
+let coachSig = '', coachParts = null;
+function clearCoachMarks() { document.querySelectorAll('.coach-target,.coach-tile,.coach-square').forEach(e => e.classList.remove('coach-target', 'coach-tile', 'coach-square')); }
 function renderCoach() {
-  const el = $('coach');
+  const el = $('coach'), hand = $('coachHand');
   const T = S && S.tutorial;
-  document.querySelectorAll('.coach-target').forEach(e => e.classList.remove('coach-target'));
-  if (!T || S.modal || !humanTurn() || ui.wb) { el.hidden = true; return; }
-  let target = null, html = '';
-  const skip = `<button type="button" class="linkbtn" id="cSkip">Skip tutorial</button>`;
+  clearCoachMarks();
+  if (!T || S.modal || !humanTurn() || ui.wb) { el.hidden = true; hand.hidden = true; coachSig = ''; coachParts = null; return; }
+  const rack = me().rack, skip = `<button type="button" class="linkbtn" id="cSkip">Skip tutorial</button>`;
+  const ri = d => rack.findIndex((x, i) => x === d && !ui.pending.some(t => t.ri === i));
+  let tile = null, square = null, button = null, point = null, html = '', chip = '';
   if (T.step === 'intro') {
-    html = `<b>Your first move</b><p>In Equacross, every line of tiles has to read as a true equation. You only place digits; the game works out the + − × ÷ and =.</p><p>Let’s make <b>9 − 7 = 2</b>.</p><div class="crow">${skip}<button type="button" class="btn primary" id="cGo">Show me</button></div>`;
+    html = `${stepTag(1)}<h3>Let’s make 9 − 7 = 2.</h3><p>In Equacross, every line of tiles has to read as a true equation. You place only digits; the game finds the + − × ÷ and =. We’ll guide you through your first move.</p><div class="crow">${skip}<button type="button" class="btn primary" id="cGo">Show me</button></div>`;
   } else {
-    const st = tutState(), rack = me().rack;
-    const ri = d => rack.findIndex((x, i) => x === d && !ui.pending.some(t => t.ri === i));
-    if (st.wrong) { target = $('bRecall'); html = `<p>That tile isn’t part of this example. Tap <b>Recall</b> to bring your tiles back and try again.</p><div class="crow">${skip}</div>`; }
-    else if (st.next) {
-      const first = st.next.d === 9, name = { 9: 'the 9', 7: 'the 7', 2: 'the 2' }[st.next.d];
-      if (st.selOk) { target = cells[st.next.k]; html = first ? `<p>Now tap the <b>★ star</b> in the middle. The first play of a game always covers it.</p>` : `<p>Tap the square just to the right of the ${st.next.d === 7 ? '9' : '7'}.</p>`; }
-      else { const i = ri(st.next.d); target = i >= 0 ? $('rack').querySelector(`.rt[data-i="${i}"]`) : null; html = `<p>${first ? 'Tap' : 'Next, tap'} <b>${name}</b> in your rack.${first ? ' (You can also drag tiles onto the board.)' : ''}</p>`; }
-      html += `<div class="crow">${skip}</div>`;
+    const st = tutState();
+    if (st.wrong) {
+      button = $('bRecall'); point = button;
+      html = `${stepTag(st.next && st.next.d === 9 ? 2 : 3)}<h3>Not quite</h3><p>That tile isn’t part of this example. Tap <b>Recall</b> to bring your tiles back, then try again.</p><div class="crow">${skip}</div>`;
+    } else if (st.next) {
+      square = cells[st.next.k];
+      const i = ri(st.next.d); if (!st.selOk && i >= 0) tile = $('rack').querySelector(`.rt[data-i="${i}"]`);
+      point = st.selOk ? square : tile;
+      const head = st.next.d === 9 ? 'Start with a 9' : st.next.d === 7 ? 'Nice. Now add a 7' : 'And now the 2';
+      const body = st.next.d === 9
+        ? (st.selOk ? 'Now tap the highlighted square. The first play of a game always covers the ★ star.' : 'Tap the 9 in your rack, then place it on the highlighted square. You can also drag it.')
+        : st.next.d === 7 ? (st.selOk ? 'Place it on the star, right after the 9.' : 'Build your line from left to right. Tap the 7, then the highlighted square.')
+        : (st.selOk ? 'Place it on the highlighted square to finish the line.' : 'One more tile. Tap the 2, then the highlighted square.');
+      html = `${stepTag(st.next.d === 9 ? 2 : 3)}<h3>${head}</h3><p>${body}</p><div class="crow">${skip}</div>`;
     } else {
-      const res = evaluate(S.board, ui.pending);
-      target = $('bPlay');
-      html = `<p>Equacross reads 972 as <b>9 − 7 = 2</b>, a true equation, worth <b>${res.total} points</b>. The <b>This play</b> panel shows how the points add up.</p><p>Press <b>Play</b> to lock it in.</p><div class="crow">${skip}</div>`;
+      // The equation and points come from the real engine.
+      const res = evaluate(S.board, ui.pending), run = res.runs[0];
+      button = $('bPlay'); point = button; T.lineCells = ui.pending.map(t => cells[t.k]);
+      if (res.ok && run && run.eq) chip = eqChipHTML(run.eq.parts, res.total, true);
+      html = `${stepTag(4)}<h3>You found an equation!</h3><p>Equacross reads ${run ? run.s : '972'} as <b>${run && run.eq ? esc(run.eq.parts.join(' ')) : '9 − 7 = 2'}</b>. Press <b>Play</b> to lock it in.</p><div class="crow">${skip}</div>`;
     }
   }
-  el.innerHTML = html; el.hidden = false;
-  const go = $('cGo'); if (go) go.onclick = () => { S.tutorial.step = 'place'; save(); render(); };
-  $('cSkip').onclick = () => { S.tutorial = null; tutMark(); ui.pending = []; ui.sel = null; save(); render(); };
-  if (target) target.classList.add('coach-target');
-  placeCoach(el, target);
+  if (tile) tile.classList.add('coach-tile');
+  if (square) square.classList.add('coach-square');
+  if (button) button.classList.add('coach-target');
+  // Briefly flash a square when the right tile lands on it.
+  const placed = ui.pending.filter(t => TUT.some(g => g.k === t.k && g.d === t.d));
+  if (placed.length > (T.placed || 0)) { const k = placed[placed.length - 1].k; cells[k].classList.remove('landed'); void cells[k].offsetWidth; cells[k].classList.add('landed'); setTimeout(() => cells[k].classList.remove('landed'), 700); }
+  T.placed = placed.length;
+  const sig = html + chip;
+  if (sig !== coachSig) {
+    coachSig = sig;
+    el.innerHTML = (chip ? `<div class="coach-chip">${chip}</div>` : '') + `<div class="coach-card">${html}</div>`;
+    el.classList.remove('swap'); void el.offsetWidth; el.classList.add('swap');
+    const go = $('cGo'); if (go) { go.onclick = () => { S.tutorial.step = 'place'; save(); render(); }; if (document.activeElement === document.body) go.focus({ preventScroll: true }); }
+    $('cSkip').onclick = () => { S.tutorial = null; tutMark(); ui.pending = []; ui.sel = null; save(); render(); };
+  }
+  el.hidden = false;
+  hand.hidden = !point;
+  const done = !tile && !square && button && button.id === 'bPlay';
+  coachParts = { protect: [tile, square, button, ...(done ? T.lineCells || [] : [])].filter(Boolean), point, overRack: done };
+  positionCoach();
+  const vis = [tile || square, button].filter(Boolean).find(e => { const r = e.getBoundingClientRect(); return r.bottom > innerHeight || r.top < 0; });
+  if (vis) vis.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
 }
-function placeCoach(el, target) {
-  const vw = innerWidth, w = Math.min(340, vw - 24);
-  el.style.width = w + 'px';
-  if (!target) { const b = boardEl.getBoundingClientRect(); el.style.left = Math.max(12, b.left + b.width / 2 - w / 2) + 'px'; el.style.top = Math.max(12, b.top + b.height * 0.18) + 'px'; el.dataset.side = ''; return; }
-  const r = target.getBoundingClientRect(), h = el.offsetHeight;
-  let left = Math.min(Math.max(12, r.left + r.width / 2 - w / 2), vw - w - 12);
-  let top = r.bottom + 12, side = 'below';
-  if (top + h > innerHeight - 8) { top = r.top - h - 12; side = 'above'; }
-  if (top < 8) { top = Math.min(innerHeight - h - 8, r.bottom + 12); side = 'below'; }
-  el.style.left = left + 'px'; el.style.top = top + 'px'; el.dataset.side = side;
-  el.style.setProperty('--ax', Math.min(w - 20, Math.max(20, r.left + r.width / 2 - left)) + 'px');
+// Keep the card near the rack without covering the tile, square or button the player needs.
+function positionCoach() {
+  const el = $('coach'), hand = $('coachHand');
+  if (el.hidden || !coachParts) return;
+  const b = boardEl.getBoundingClientRect(), rk = $('rack').getBoundingClientRect(), ac = $('actions').getBoundingClientRect();
+  const w = Math.min(b.width, 440), left = b.left + (b.width - w) / 2;
+  el.style.width = w + 'px'; el.style.left = left + 'px';
+  const h = el.offsetHeight, chipEl = el.querySelector('.coach-chip'), ch = chipEl ? chipEl.offsetHeight + 10 : 0;
+  const rects = coachParts.protect.map(e => e.getBoundingClientRect());
+  const hits = top => rects.some(r => !(r.right < left || r.left > left + w || r.bottom < top - ch || r.top > top + h));
+  const cands = [rk.top - 12 - h, ...(coachParts.overRack ? [ac.top - 12 - h] : []), b.top + 12 + ch, ac.bottom + 12 + ch];
+  const fits = t => t - ch >= 4 && t + h <= innerHeight - 4;
+  let top = cands.find(t => !hits(t) && fits(t)) ?? cands.find(t => !hits(t)) ?? cands[0];
+  top = Math.max(4 + ch, Math.min(top, innerHeight - h - 4));
+  el.style.top = top + 'px';
+  const pt = coachParts.point;
+  if (pt) { const r = pt.getBoundingClientRect(), s = 44; hand.style.left = (r.left + r.width / 2 - s * 0.49) + 'px'; hand.style.top = (r.top + r.height * 0.55) + 'px'; }
 }
-addEventListener('resize', () => { if (S && S.tutorial) renderCoach(); });
-addEventListener('scroll', () => { if (S && S.tutorial) renderCoach(); }, { passive: true });
+addEventListener('resize', positionCoach);
+addEventListener('scroll', positionCoach, { passive: true });
+$('coachHand').innerHTML = HAND;
 $('bTut').addEventListener('click', () => { if (ui.thinking) return; if (S) save(); startTutorial(); });
 
 /* ---------- boot ---------- */
