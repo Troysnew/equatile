@@ -2,8 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<link rel="icon" href="../assets/brand/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/brand/apple-touch-icon.png">
+<link rel="manifest" href="../site.webmanifest">
+<meta name="theme-color" content="#FBF9F3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E1C15" media="(prefers-color-scheme: dark)">
+<link rel="preload" href="../assets/fonts/nunito-sans-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
 <meta name="description" content="Play Equacross: a Scrabble-style game with number tiles where every line is an equation.">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
@@ -11,40 +16,46 @@
 <body>
 <title>Equacross</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@500;700;800&family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <style>
-/* Layout: engineer's-pad board on the left, scorecard column on the right; stacks on phones */
+/* Equacross brand tokens. Palette: Forest #193B2C, Coral #C83C30, Sage #E2EBD6, Cream #FFF8E8, Blue #91B9D8. */
+@font-face{font-family:"Nunito Sans";font-weight:400;font-display:swap;src:url(../assets/fonts/nunito-sans-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"Nunito Sans";font-weight:600;font-display:swap;src:url(../assets/fonts/nunito-sans-latin-600-normal.woff2) format("woff2")}
+@font-face{font-family:"Nunito Sans";font-weight:700;font-display:swap;src:url(../assets/fonts/nunito-sans-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:"Nunito Sans";font-weight:800;font-display:swap;src:url(../assets/fonts/nunito-sans-latin-800-normal.woff2) format("woff2")}
+@font-face{font-family:"Nunito Sans";font-weight:900;font-display:swap;src:url(../assets/fonts/nunito-sans-latin-900-normal.woff2) format("woff2")}
 :root{
-  --bg:#eef3e8; --paper:#e2ecd5; --void:#e8efdf; --grid:#b4c9a0; --card:#f8fbf4; --line:#cfdcc3;
-  --ink:#1d291d; --muted:#5a6a55; --pencil:#c23a2b; --pencil-soft:#f5d9d3;
-  --tile:#fbf6e6; --tile-edge:#d6c99f; --tile-ink:#26221a; --tile-last:#fff2b8;
-  --p2t:#cde0ef; --p3t:#8db3d6; --p2e:#f3d1c8; --p3e:#e2907e; --prem-ink:#33433a;
-  --ok:#2e7d4f; --ok-soft:#d3ecd9; --bad:#b3372a; --warn:#94660a;
-  --pad:#e4eed6; --padline:#cfdcbd; --circ-bg:#22322a; --circ-ink:#f2f6ea; --circ-edge:#0e1712;
-  --mine-bg:#f6d64b; --mine-ink:#2b2306; --mine-edge:#c6a426;
-  --f-display:"Bricolage Grotesque", "Arial Narrow", system-ui, sans-serif;
-  --f-body:"Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --f-num:"Azeret Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --forest:#193B2C; --coral:#C83C30; --sage:#E2EBD6; --cream:#FFF8E8; --blue:#91B9D8;
+  --bg:#FBF9F3; --paper:#E2EBD6; --void:#EEF2E7; --grid:#CBD9BA; --card:#FFFFFF; --line:#E1E7D7;
+  --ink:#193B2C; --muted:#56695C; --pencil:#C83C30; --pencil-press:#A93127; --pencil-soft:#F8DEDA; --on-pencil:#FFFFFF;
+  --tile:#FFF8E8; --tile-edge:#D9CBA6; --tile-ink:#193B2C; --tile-last:#FFEFC4; --tile-shadow:rgba(25,59,44,.22);
+  --p2t:#CFE0EE; --p3t:#91B9D8; --p2e:#F6D2CE; --p3e:#EE9C92; --prem-ink:#193B2C;
+  --ok:#2E7D4F; --ok-soft:#D7EBDC; --bad:#B3372A; --warn:#94660A;
+  --pad:#EEF3E6; --padline:#DCE6CF; --circ-bg:#193B2C; --circ-ink:#FFF8E8; --circ-edge:#0C2219;
+  --mine-bg:#F5D565; --mine-ink:#2B2306; --mine-edge:#C9A62C;
+  --f-display:"Nunito Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-body:"Nunito Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-num:"Nunito Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --r-sm:8px; --r-md:12px; --r-lg:16px;
+  --sh-card:0 1px 2px rgba(25,59,44,.05), 0 6px 18px rgba(25,59,44,.06);
+  --ease:cubic-bezier(.2,.8,.2,1);
 }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
-  --bg:#0f1712; --paper:#192920; --void:#15231b; --grid:#2b3f31; --card:#15211a; --line:#29392e;
-  --ink:#e3ecdc; --muted:#98a993; --pencil:#f07261; --pencil-soft:#4a2620;
-  --tile:#f1e9d0; --tile-edge:#b9a776; --tile-ink:#221e16; --tile-last:#ffe68a;
-  --p2t:#223c55; --p3t:#2e5f8c; --p2e:#542d26; --p3e:#8a4232; --prem-ink:#d6e2d2;
-  --ok:#6cc690; --ok-soft:#1f3a29; --bad:#f07261; --warn:#e3b34a;
-  --pad:#15231a; --padline:#1f3327; --circ-bg:#060b08; --circ-ink:#e7efe0; --circ-edge:#3a5243;
-  --mine-bg:#e9c63c; --mine-ink:#251d03; --mine-edge:#a6871a; color-scheme:dark }}
+  --bg:#0E1C15; --paper:#1A3024; --void:#152820; --grid:#0F2219; --card:#142620; --line:#25392D;
+  --ink:#EEF2E6; --muted:#A3B5A0; --pencil:#EC6A5C; --pencil-press:#D85A4C; --pencil-soft:#4A2620; --on-pencil:#1A0B08;
+  --tile:#FFF8E8; --tile-edge:#C8B88F; --tile-ink:#193B2C; --tile-last:#FFE9A8; --tile-shadow:rgba(0,0,0,.45);
+  --p2t:#24405A; --p3t:#35648E; --p2e:#4F2C29; --p3e:#83413A; --prem-ink:#DCE6D6;
+  --ok:#6CC690; --ok-soft:#1F3A29; --bad:#F07261; --warn:#E3B34A;
+  --pad:#122119; --padline:#1C3124; --circ-bg:#05110B; --circ-ink:#EEF2E6; --circ-edge:#2E4A3A;
+  --mine-bg:#E9C63C; --mine-ink:#251D03; --mine-edge:#A6871A; --sh-card:none; color-scheme:dark }}
 :root[data-theme="dark"]{
-  --bg:#0f1712; --paper:#192920; --void:#15231b; --grid:#2b3f31; --card:#15211a; --line:#29392e;
-  --ink:#e3ecdc; --muted:#98a993; --pencil:#f07261; --pencil-soft:#4a2620;
-  --tile:#f1e9d0; --tile-edge:#b9a776; --tile-ink:#221e16; --tile-last:#ffe68a;
-  --p2t:#223c55; --p3t:#2e5f8c; --p2e:#542d26; --p3e:#8a4232; --prem-ink:#d6e2d2;
-  --ok:#6cc690; --ok-soft:#1f3a29; --bad:#f07261; --warn:#e3b34a;
-  --pad:#15231a; --padline:#1f3327; --circ-bg:#060b08; --circ-ink:#e7efe0; --circ-edge:#3a5243;
-  --mine-bg:#e9c63c; --mine-ink:#251d03; --mine-edge:#a6871a; color-scheme:dark }
+  --bg:#0E1C15; --paper:#1A3024; --void:#152820; --grid:#0F2219; --card:#142620; --line:#25392D;
+  --ink:#EEF2E6; --muted:#A3B5A0; --pencil:#EC6A5C; --pencil-press:#D85A4C; --pencil-soft:#4A2620; --on-pencil:#1A0B08;
+  --tile:#FFF8E8; --tile-edge:#C8B88F; --tile-ink:#193B2C; --tile-last:#FFE9A8; --tile-shadow:rgba(0,0,0,.45);
+  --p2t:#24405A; --p3t:#35648E; --p2e:#4F2C29; --p3e:#83413A; --prem-ink:#DCE6D6;
+  --ok:#6CC690; --ok-soft:#1F3A29; --bad:#F07261; --warn:#E3B34A;
+  --pad:#122119; --padline:#1C3124; --circ-bg:#05110B; --circ-ink:#EEF2E6; --circ-edge:#2E4A3A;
+  --mine-bg:#E9C63C; --mine-ink:#251D03; --mine-edge:#A6871A; --sh-card:none; color-scheme:dark }
 
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
@@ -246,16 +257,110 @@ button,.btn,.key,.wt,.sop,.rt,.cell,.seg label{touch-action:manipulation}
 .wscore{display:flex;justify-content:space-between;font-weight:700;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
 .wscore .v{font-family:var(--f-num)}
 .btn.wide{width:100%;padding:12px}
+
+/* ===== Equacross brand layer ===== */
+body{font-size:15px;-webkit-font-smoothing:antialiased}
+.app{gap:16px;padding-block:14px 40px}
+.top{align-items:center}
+.brandmark{display:inline-flex;line-height:0}
+.brandmark img{height:34px;width:auto}
+@media (max-width:520px){.brandmark img{height:28px}}
+.logo-dark{display:none}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .logo-light{display:none}:root:not([data-theme="light"]) .logo-dark{display:inline}}
+:root[data-theme="dark"] .logo-light{display:none} :root[data-theme="dark"] .logo-dark{display:inline}
+/* score chips */
+.scores{gap:8px}
+.chip{background:var(--card);border:1.5px solid var(--line);border-radius:var(--r-md);padding:6px 12px 7px;min-width:96px;box-shadow:var(--sh-card);position:relative;transition:border-color .2s var(--ease)}
+.chip .nm{font-size:.66rem;letter-spacing:.09em;font-weight:800}
+.chip .sc{font-weight:900;font-size:1.5rem;letter-spacing:-.01em}
+.chip.on{border-color:var(--pencil);box-shadow:0 0 0 3px color-mix(in srgb,var(--pencil) 14%,transparent),var(--sh-card)}
+.chip.on .nm{color:var(--pencil)}
+.chip.dim{box-shadow:none;background:transparent}
+.chip.bump .sc{animation:bump .5s var(--ease)}
+.chip .plus{position:absolute;right:10px;top:4px;font-weight:900;font-size:.9rem;color:var(--ok);animation:rise 1.1s var(--ease) forwards;pointer-events:none}
+@keyframes bump{0%{transform:scale(1)}35%{transform:scale(1.18);color:var(--ok)}100%{transform:scale(1)}}
+@keyframes rise{0%{opacity:0;transform:translateY(6px)}20%{opacity:1}100%{opacity:0;transform:translateY(-14px)}}
+/* board: flat sage squares, readable bonus labels */
+.board{gap:2px;padding:3px;background:var(--grid);border-radius:var(--r-md);box-shadow:var(--sh-card)}
+.cell{border-radius:3px;font-weight:800;font-size:calc(100cqi / 13 * .27);letter-spacing:.02em;color:var(--prem-ink);transition:background-color .15s}
+.cell.p2T,.cell.p3T,.cell.p2E,.cell.p3E{color:color-mix(in srgb,var(--prem-ink) 82%,transparent)}
+.cell:not(.filled):not(.void):hover{filter:brightness(.97)}
+.cell .star{font-size:calc(100cqi / 13 * .5)}
+.cell.gapsel{border-radius:4px}
+.cell.glow{z-index:2}
+.cell.glow .tile{animation:glow 1s var(--ease)}
+@keyframes glow{0%,100%{box-shadow:inset 0 -.14em 0 var(--tile-edge),0 .08em .12em var(--tile-shadow)}30%{box-shadow:inset 0 -.14em 0 var(--tile-edge),0 0 0 3px var(--ok),0 0 14px color-mix(in srgb,var(--ok) 60%,transparent)}}
+/* raised number tiles */
+.tile{inset:1.5px;border-radius:18%;background:linear-gradient(180deg,#FFFDF6 0%,var(--tile) 55%);font-weight:900;font-size:calc(100cqi / 13 * .58);box-shadow:inset 0 -.14em 0 var(--tile-edge),0 .08em .12em var(--tile-shadow);font-variant-numeric:tabular-nums}
+.tile .pt{font-weight:800;opacity:.6;right:11%;bottom:9%}
+.tile.last{background:linear-gradient(180deg,#FFFBEA 0%,var(--tile-last) 60%)}
+.tile.pending{box-shadow:inset 0 -.14em 0 var(--tile-edge),0 0 0 2.5px var(--pencil),0 .12em .2em var(--tile-shadow);animation:place .2s var(--ease)}
+@keyframes place{0%{transform:translateY(-18%) scale(.86);opacity:.6}70%{transform:translateY(2%) scale(1.03)}100%{transform:none;opacity:1}}
+.cell.dropok{outline:3px solid var(--ok);outline-offset:-3px;background:var(--ok-soft)}
+/* status line */
+.status{font-weight:700;font-size:.95rem;color:var(--muted)}
+/* rack: same tactile tiles, a little larger */
+.rack{gap:7px;padding:10px;background:color-mix(in srgb,var(--paper) 55%,var(--card));border:1px solid var(--line);border-radius:var(--r-lg);min-height:76px;max-width:640px}
+.rt{width:52px;height:56px;border-radius:11px;background:linear-gradient(180deg,#FFFDF6 0%,var(--tile) 55%);font-weight:900;font-size:1.75rem;box-shadow:inset 0 -5px 0 var(--tile-edge),0 2px 4px var(--tile-shadow);transition:transform .14s var(--ease),box-shadow .14s var(--ease)}
+.rt:hover:not(.gone){transform:translateY(-2px)}
+.rt:active:not(.gone){transform:translateY(1px);box-shadow:inset 0 -3px 0 var(--tile-edge),0 1px 2px var(--tile-shadow)}
+.rt .pt{font-weight:800;bottom:8px;right:7px}
+.rt.sel{transform:translateY(-8px);box-shadow:inset 0 -5px 0 var(--tile-edge),0 0 0 3px var(--pencil),0 8px 14px var(--tile-shadow)}
+.rt.gone{background:transparent;box-shadow:inset 0 0 0 2px var(--line)}
+/* controls: Play first, then a quiet secondary row */
+.actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;max-width:640px}
+.act-main,.act-sec,.act-meta{display:flex;flex-wrap:wrap;gap:8px}
+.act-meta{margin-left:auto}
+.btn{font:700 .9rem var(--f-body);border:1.5px solid var(--line);background:var(--card);color:var(--ink);padding:9px 14px;border-radius:10px;transition:transform .12s var(--ease),border-color .15s,background-color .15s,box-shadow .15s}
+.btn:hover:not(:disabled){border-color:color-mix(in srgb,var(--ink) 30%,transparent)}
+.btn:active:not(:disabled){transform:translateY(1px)}
+.btn.primary{background:var(--pencil);border-color:var(--pencil);color:var(--on-pencil);box-shadow:0 2px 0 var(--pencil-press),0 4px 10px color-mix(in srgb,var(--pencil) 28%,transparent);padding:9px 22px;font-weight:800}
+.btn.primary:hover:not(:disabled){background:var(--pencil-press);border-color:var(--pencil-press)}
+.btn.primary:disabled{opacity:.45;box-shadow:none}
+.btn:disabled{opacity:.5}
+@media (max-width:560px){
+  .actions{gap:6px}
+  .act-main{flex:1 1 100%}
+  .act-main .btn.primary{flex:1 1 auto}
+  .act-sec,.act-meta{gap:6px}
+  .act-meta{margin-left:0}
+  .btn{padding:8px 11px;font-size:.86rem}
+}
+/* side panels */
+.side{gap:12px}
+.panel{border-radius:var(--r-lg);padding:14px 16px;box-shadow:var(--sh-card)}
+.panel h2{font-family:var(--f-display);font-weight:800;font-size:1rem;letter-spacing:0}
+.rules > summary{border-radius:var(--r-lg)}
+.rules > summary .tog::before{font-weight:900}
+.eqline{font-weight:800}
+.prow .pts,.log .pts{font-weight:900;color:var(--ok)}
+.log .pts{color:var(--ink)}
+.mini span{background:linear-gradient(180deg,#FFFDF6 0%,var(--tile) 55%);box-shadow:inset 0 -3px 0 var(--tile-edge),0 1px 2px var(--tile-shadow);font-weight:900;border-radius:6px}
+.mini span.gap{background:var(--paper);box-shadow:inset 0 0 0 1.5px var(--grid)}
+.mini span.new{box-shadow:inset 0 -3px 0 var(--tile-edge),0 0 0 2px var(--pencil)}
+.sw{border-radius:4px;font-weight:800}
+/* dialogs and the Workbench share the same type and corners */
+.modal{border-radius:18px;box-shadow:0 20px 60px rgba(12,34,25,.25)}
+.modal h2,.sheet-head h2{font-family:var(--f-display);font-weight:900;letter-spacing:-.01em}
+.seg label{border-radius:10px;border-width:1.5px}
+.field input{border-radius:10px;border-width:1.5px}
+.wt{border-radius:9px;font-weight:900}
+.wt.mine{box-shadow:inset 0 -4px 0 var(--mine-edge),0 1px 2px var(--tile-shadow)}
+.key{border-radius:10px;font-weight:900}
+.calc{border-radius:var(--r-md)}
+.code{font-weight:900}
+@media (prefers-reduced-motion: reduce){.chip.bump .sc,.chip .plus,.cell.glow .tile,.tile.pending{animation:none!important}}
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
 @media (max-width:480px){.rt{width:42px;height:48px;font-size:1.4rem}.rack{gap:4px}.btn{padding:8px 11px}}
+/* desktop: size the board so board, rack and Play fit in one screen */
+@media (min-width:861px){.app{--bw:clamp(460px,calc(100vh - 330px),640px);--bw:clamp(460px,calc(100dvh - 330px),640px)}.board,.rack,.actions,.status{max-width:var(--bw)}.layout{grid-template-columns:minmax(0,var(--bw)) minmax(300px,380px);justify-content:space-between}}
+@media (max-width:560px){.top{gap:10px}.scores{flex-wrap:nowrap;width:100%}.chip{min-width:0;flex:1 1 0;padding:5px 10px 6px}.chip.dim{flex:0 0 auto;min-width:58px}.chip .nm{overflow:hidden;text-overflow:ellipsis}}
+@media (min-width:561px){.act-main{order:0}.act-meta{order:1}.act-sec{order:2;flex-basis:100%}}
 </style>
 
 <div class="app">
   <header class="top">
-    <div>
-      <h1><a href="../" style="color:inherit;text-decoration:none" aria-label="Equacross home">Equa<span class="eq">cross</span></a></h1>
-      <p class="tag">Scrabble with number tiles. Every line you build has to read as a true equation.</p>
-    </div>
+    <h1 style="margin:0"><a class="brandmark" href="../" aria-label="Equacross home"><img class="logo-light" src="../assets/brand/logo-wordmark.svg" alt="Equacross" width="190" height="45"><img class="logo-dark" src="../assets/brand/logo-wordmark-on-dark.svg" alt="Equacross" width="190" height="45"></a></h1>
     <div class="scores" id="scores"></div>
   </header>
 
@@ -265,15 +370,9 @@ button,.btn,.key,.wt,.sop,.rt,.cell,.seg label{touch-action:manipulation}
       <div class="status" id="status" aria-live="polite"></div>
       <div class="rack" id="rack" aria-label="Your tiles"></div>
       <div class="actions" id="actions">
-        <button class="btn primary" id="bPlay">Play</button>
-        <button class="btn" id="bRecall">Recall</button>
-        <button class="btn" id="bShuffle">Shuffle</button>
-        <button class="btn" id="bSwap">Swap</button>
-        <button class="btn" id="bPass">Pass</button>
-        <button class="btn" id="bHint">Show a move</button>
-        <button class="btn" id="bWb">Workbench</button>
-        <button class="btn ghost" id="bGames">My games</button>
-        <button class="btn" id="bNew">New game</button>
+        <div class="act-main"><button class="btn primary" id="bPlay">Play</button><button class="btn" id="bRecall">Recall</button></div>
+        <div class="act-sec"><button class="btn" id="bShuffle">Shuffle</button><button class="btn" id="bSwap">Swap</button><button class="btn" id="bPass">Pass</button><button class="btn" id="bHint">Show a move</button><button class="btn" id="bWb">Workbench</button></div>
+        <div class="act-meta"><button class="btn" id="bGames">My games</button><button class="btn" id="bNew">New game</button></div>
       </div>
     </section>
 
@@ -636,6 +735,7 @@ function hintRate(p) { if ((p.hints || 0) >= HINT_DISCOUNTED || S.mode !== 'ai')
 const humanTurn = () => S && !S.over && !ui.thinking && (isPz() ? !S.puzzle.solved : isOn() ? S.online.status === 'active' && S.turn === S.online.seat : !cur().ai && !S.handoff);
 
 function commitPlay(pl, res) {
+  flashGlow(res.runs.flatMap(r => r.cells));
   const p = cur();
   for (const t of pl) S.board[t.k] = t.d;
   pl.map(t => t.ri).sort((a, b) => b - a).forEach(i => p.rack.splice(i, 1));
@@ -912,6 +1012,23 @@ function tileHTML(d, cls) { return `<span class="tile ${cls}">${d}<span class="p
 function eqHTML(parts) { return `<span class="eqline">${parts.map(x => /[+−×÷=]/.test(x) ? `<span class="op">${x}</span>` : x).join('')}</span>`; }
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
+let lastScores = null;
+function flashGlow(cells) {
+  ui.glow = new Set(cells);
+  clearTimeout(flashGlow.t); flashGlow.t = setTimeout(() => { ui.glow = null; render(); }, 1000);
+}
+function bumpScores() {
+  if (isPz()) { lastScores = null; return; }
+  const now = { id: S.id, s: S.players.map(p => p.score) };
+  if (lastScores && lastScores.id === now.id) {
+    const chips = $('scores').querySelectorAll('.chip');
+    now.s.forEach((v, i) => {
+      const d = v - lastScores.s[i];
+      if (d > 0 && chips[i]) { chips[i].classList.add('bump'); const pl = document.createElement('span'); pl.className = 'plus'; pl.textContent = '+' + d; chips[i].appendChild(pl); }
+    });
+  }
+  lastScores = now;
+}
 function renderScores() {
   if (isPz()) {
     const P = S.puzzle;
@@ -923,6 +1040,7 @@ function renderScores() {
   }
   $('scores').innerHTML = S.players.map((p, i) => `<div class="chip ${!S.over && i === S.turn && (!isOn() || S.online.status === 'active') ? 'on' : ''}"><span class="nm">${esc(p.name)}${p.ai ? ' · ' + LEVELS[S.level].label : ''}${isOn() && i === S.online.seat ? ' (you)' : ''}${!S.over && i === S.turn && (!isOn() || S.online.status === 'active') ? ' · to play' : ''}</span><span class="sc">${p.score}</span></div>`).join('')
     + `<div class="chip dim"><span class="nm">Bag</span><span class="sc">${S.bag.length}</span></div>`;
+  bumpScores();
 }
 function render() {
   if (!S) { $('status').textContent = ui.msg; return; }
@@ -950,6 +1068,7 @@ function render() {
       if (pr) label += `, ${PNAME[pr]}`; label += ', empty';
     }
     if (d != null && !pz) cls += ' filled';
+    if (ui.glow && ui.glow.has(k)) cls += ' glow';
     if (d == null && !pend.has(k) && circ.has(k)) cls += ' gapsel';
     if (pend.has(k)) cls += ' pend';
     c.className = cls;
@@ -1211,7 +1330,7 @@ $('bPlay').addEventListener('click', () => {
   if (isPz()) return checkPuzzle();
   const res = evaluate(S.board, ui.pending);
   if (!res.ok) { ui.msg = res.msg || 'That play doesn’t work.'; ui.err = true; render(); return; }
-  if (isOn()) return onlineAction({ action: 'play', placements: ui.pending.map(t => ({ k: t.k, d: t.d })) }, v => `You scored ${v.scored}.`);
+  if (isOn()) { const cells = res.runs.flatMap(r => r.cells); return onlineAction({ action: 'play', placements: ui.pending.map(t => ({ k: t.k, d: t.d })) }, v => { flashGlow(cells); return `You scored ${v.scored}.`; }); }
   commitPlay(ui.pending.slice(), res);
 });
 $('bRecall').addEventListener('click', () => { ui.pending = []; ui.msg = ''; ui.err = false; ui.bad = null; render(); });

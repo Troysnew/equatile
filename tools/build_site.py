@@ -9,17 +9,27 @@ ROOT = Path(__file__).resolve().parent.parent
 SITE = "https://equacross.com"
 EMAIL = "support@equacross.com"
 UPDATED = "October 22, 2026"
-FONTS = ("https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@500;700;800"
-         "&family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800"
-         "&family=Instrument+Sans:wght@400;500;600;700&display=swap")
 
 NAV = [("how-to-play/", "How to play", "how"), ("support/", "Support", "support")]
 
 
-def mark():
-    return ('<svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="12" fill="var(--tile)"/>'
-            '<rect x="4" y="50" width="56" height="10" rx="5" fill="var(--tile-edge)"/><rect x="4" y="44" width="56" height="10" fill="var(--tile)"/>'
-            '<rect x="17" y="22" width="30" height="6" rx="3" fill="var(--pencil)"/><rect x="17" y="34" width="30" height="6" rx="3" fill="var(--pencil)"/></svg>')
+def logo(pre, h=34):
+    """The approved wordmark, with a light-on-dark version for dark mode."""
+    w = round(h * 4.05)
+    return (f'<img class="logo-light" src="{pre}assets/brand/logo-wordmark.svg" alt="Equacross" width="{w}" height="{h}">'
+            f'<img class="logo-dark" src="{pre}assets/brand/logo-wordmark-on-dark.svg" alt="Equacross" width="{w}" height="{h}">')
+
+
+ICONS = {
+    "trophy": '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M14 8h20v8a10 10 0 0 1-20 0z" fill="var(--coral)"/><path d="M14 11H8.5a4.5 4.5 0 0 0 5.7 6.6M34 11h5.5a4.5 4.5 0 0 1-5.7 6.6" fill="none" stroke="var(--coral)" stroke-width="3.2" stroke-linecap="round"/><rect x="21.5" y="25" width="5" height="8" rx="1.5" fill="var(--coral)"/><rect x="15" y="33" width="18" height="6" rx="2.5" fill="var(--coral)"/></svg>',
+    "brain": '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M23 9.5a6 6 0 0 0-11 2.2 6 6 0 0 0-4.6 9.6 6 6 0 0 0 2.3 9.6A6 6 0 0 0 20 36.5a4.6 4.6 0 0 0 3 2z" fill="#7FA66C"/><path d="M25 9.5a6 6 0 0 1 11 2.2 6 6 0 0 1 4.6 9.6 6 6 0 0 1-2.3 9.6A6 6 0 0 1 28 36.5a4.6 4.6 0 0 1-3 2z" fill="#7FA66C"/><path d="M16 17c2 0 3.5 1.4 3.5 3.4M13.5 26c2.2-.3 4 .9 4.6 2.8M32 17c-2 0-3.5 1.4-3.5 3.4M34.5 26c-2.2-.3-4 .9-4.6 2.8" fill="none" stroke="#E2EBD6" stroke-width="2.4" stroke-linecap="round"/></svg>',
+    "calendar": '<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="7" y="10" width="34" height="30" rx="6" fill="var(--coral)"/><rect x="7" y="10" width="34" height="9" rx="4" fill="#A93127"/><rect x="14" y="6" width="4" height="9" rx="2" fill="var(--forest-ink)"/><rect x="30" y="6" width="4" height="9" rx="2" fill="var(--forest-ink)"/><g fill="#FFF8E8"><rect x="13" y="23" width="6" height="5" rx="1.2"/><rect x="21" y="23" width="6" height="5" rx="1.2"/><rect x="29" y="23" width="6" height="5" rx="1.2"/><rect x="13" y="31" width="6" height="5" rx="1.2"/><rect x="21" y="31" width="6" height="5" rx="1.2"/></g></svg>',
+    "people": '<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="15" r="6.5" fill="#6FA0C9"/><path d="M12 38c0-7 5.4-12 12-12s12 5 12 12z" fill="#6FA0C9"/><circle cx="11.5" cy="19" r="4.6" fill="var(--blue)"/><path d="M3 37c0-5.2 3.8-9 8.5-9 2 0 3.8.6 5.2 1.7A15 15 0 0 0 11 37z" fill="var(--blue)"/><circle cx="36.5" cy="19" r="4.6" fill="var(--blue)"/><path d="M45 37c0-5.2-3.8-9-8.5-9-2 0-3.8.6-5.2 1.7A15 15 0 0 1 37 37z" fill="var(--blue)"/></svg>',
+}
+
+
+SPARK = ('<svg class="spark" viewBox="0 0 60 50" aria-hidden="true"><g stroke="var(--coral)" stroke-width="7" stroke-linecap="round" fill="none">'
+         '<line x1="14" y1="40" x2="5" y2="27"/><line x1="29" y1="37" x2="27" y2="12"/><line x1="44" y1="40" x2="54" y2="26"/></g></svg>')
 
 
 def page(path, key, title, desc, body, base=None):
@@ -45,20 +55,20 @@ def page(path, key, title, desc, body, base=None):
 <meta property="og:url" content="{canon}">
 <meta property="og:image" content="{SITE}/assets/og.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="theme-color" content="#e3edd6" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#16251c" media="(prefers-color-scheme: dark)">
-<link rel="icon" href="{pre}assets/favicon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="{pre}assets/apple-touch-icon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="{FONTS}">
+<meta name="theme-color" content="#FBF9F3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E1C15" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="{pre}favicon.ico" sizes="48x48">
+<link rel="icon" href="{pre}assets/brand/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="{pre}assets/brand/apple-touch-icon.png">
+<link rel="manifest" href="{pre}site.webmanifest">
+<link rel="preload" href="{pre}assets/fonts/nunito-sans-latin-900-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{pre}assets/site.css">
 </head>
 <body data-page="{key}">
 <a class="skip" href="#main">Skip to content</a>
 <header class="site-head">
   <div class="wrap">
-    <a class="brand" href="{pre if pre else './'}" aria-label="Equacross home">{mark()}<span>Equa<span class="eq">cross</span></span></a>
+    <a class="brand" href="{pre if pre else './'}" aria-label="Equacross home">{logo(pre, 34)}</a>
     <nav class="nav" aria-label="Main">{nav}<a class="btn primary" href="{pre}play/">Play</a></nav>
   </div>
 </header>
@@ -68,7 +78,7 @@ def page(path, key, title, desc, body, base=None):
 <footer class="site-foot">
   <div class="wrap">
     <div style="display:flex;flex-direction:column;gap:8px">
-      <a class="brand" href="{pre if pre else './'}">{mark()}<span>Equa<span class="eq">cross</span></span></a>
+      <a class="brand" href="{pre if pre else './'}" aria-label="Equacross home">{logo(pre, 30)}</a>
       <p class="fine">Every line is an equation.</p>
     </div>
     <nav class="foot-links" aria-label="Footer">
@@ -108,12 +118,37 @@ HOME = f"""
   <div class="wrap">
     <div class="hero-copy">
       <span class="eyebrow">A word game for numbers</span>
-      <h1>Every line is an equation<span class="op">.</span></h1>
+      <h1>Every line is<br>an equation<span class="op">.</span></h1>
       <p class="lede">Place digit tiles like Scrabble. Equacross finds the math hiding in every line you build, and scores it.</p>
       <div class="cta-row">
-        <a class="btn primary" href="play/">Play in your browser</a>
+        <a class="btn primary big" href="play/">Play in your browser</a>
         <span class="soon">iPhone app coming soon</span>
       </div>
+    </div>
+    <figure class="hero-art" aria-label="The tiles 9, 7 and 2 in a row, which Equacross reads as 9 minus 7 equals 2">
+      <div class="hero-board" aria-hidden="true">{"".join(f'<i class="c{c}"></i>' for c in "bscsscsbsssssscsssbsssssc")}</div>
+      <div class="hero-tiles" aria-hidden="true"><span class="ht ht1">9</span><span class="ht ht2">7</span><span class="ht ht3">2</span>{SPARK}</div>
+      <figcaption class="hero-read"><span class="num">9 <span class="op">−</span> 7 <span class="op">=</span> 2</span><span class="ok">✓ a true line</span></figcaption>
+    </figure>
+  </div>
+</section>
+
+<section class="features" aria-label="Why Equacross">
+  <div class="wrap feature-row">
+    <div class="feature">{ICONS["trophy"]}<h3>Fun strategy</h3><p>Plan ahead for bigger scores.</p></div>
+    <div class="feature">{ICONS["brain"]}<h3>Quick to learn</h3><p>Simple rules, deep gameplay.</p></div>
+    <div class="feature">{ICONS["calendar"]}<h3>Daily puzzle</h3><p>A new challenge every day.</p></div>
+    <div class="feature">{ICONS["people"]}<h3>Play with friends</h3><p>Challenge anyone, anywhere.</p></div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="wrap split">
+    <div class="copy">
+      <span class="eyebrow">How it works</span>
+      <h2>You place digits. Equacross finds the math.</h2>
+      <p>There are no symbol tiles. Put digits next to each other, and the game reads the line as an equation: it works out where the operator and the equals sign go.</p>
+      <p>Extend a line and it’s read again, so the same tiles can become part of a bigger equation.</p>
     </div>
     <div class="demo" id="demo" aria-live="polite">
       <span class="eyebrow">How a line reads</span>
@@ -436,7 +471,6 @@ PRIVACY = f"""
     <ul>
       <li><strong>Supabase</strong>, which hosts our server and database for online games.</li>
       <li><strong>GitHub Pages</strong>, which hosts this website.</li>
-      <li><strong>Google Fonts</strong>, which provides the typefaces.</li>
       <li><strong>jsDelivr</strong>, which delivers a code library used for live online game updates.</li>
     </ul>
     <p>These providers process information under their own privacy policies. We don’t use them to track you.</p>
