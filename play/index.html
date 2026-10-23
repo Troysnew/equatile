@@ -469,6 +469,32 @@ body{font-size:15px;-webkit-font-smoothing:antialiased}
 .wbmode.base{background:var(--forest);color:var(--cream)}
 .wbtip{background:var(--card);border:1.5px solid var(--line);border-left:4px solid var(--pencil);border-radius:12px;padding:10px 12px;font-size:.88rem;line-height:1.45;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
 .wbtip .btn{padding:5px 12px;font-size:.82rem}
+/* accounts */
+.nbadge{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;margin-left:4px;border-radius:999px;background:var(--pencil);color:#fff;font-size:.7rem;font-weight:900;line-height:1}
+@media (max-width:560px){.top .nav-btn{min-height:34px;padding:6px 9px;font-size:.8rem}.top .acct-btn{padding:4px 7px}}
+@media (max-width:400px){.top{column-gap:6px}.top .nav-btn{font-size:.74rem;padding:5px 7px}.top .acct-btn.in{padding:2px}.brandmark img.logo-light,.brandmark img.logo-dark{height:24px}}
+.acct-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 10px}
+.acct-btn svg{width:17px;height:17px}
+.acct-btn.in{padding:3px;border-radius:999px;border-color:transparent}
+.acct-btn .av{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--forest);color:var(--cream);font-weight:900;font-size:.9rem}
+@media (max-width:520px){.acct-btn .lbl{display:none}.acct-btn{padding:6px 8px}.acct-btn .av{width:26px;height:26px;font-size:.8rem}}
+.acct-providers{display:flex;flex-direction:column;gap:8px}
+.btn.sso{display:flex;align-items:center;justify-content:center;gap:10px;min-height:46px;font-size:.98rem;font-weight:800;border-radius:12px}
+.btn.sso svg{width:20px;height:20px}
+.btn.sso.apple{background:#000;color:#fff;border-color:#000}
+.btn.sso.apple:hover:not(:disabled){background:#1a1a1a}
+.btn.sso.google{background:#fff;color:#1f1f1f;border:1.5px solid #DADCE0}
+.btn.sso:disabled{opacity:.45;cursor:not-allowed}
+.acct-or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.8rem;font-weight:700}
+.acct-or::before,.acct-or::after{content:"";flex:1;height:1px;background:var(--line)}
+.acct-msg{margin:0;font-weight:700;color:var(--ok)}.acct-msg.err{color:var(--bad)}
+.acct-who{margin:0;font-weight:800}.acct-via{color:var(--muted);font-weight:600}
+.acct-line{margin:0;font-size:.88rem;color:var(--muted)}
+.acct-actions{align-items:center}.acct-actions .sp{flex:1}
+.danger-link{color:var(--bad)}
+.btn.danger{background:var(--bad);border-color:var(--bad);color:#fff}
+.acct-del{background:var(--pencil-soft);border-radius:12px;padding:12px 14px}
+.acct-del p{margin:0 0 8px}
 /* guided first move: coachmark, step tag, highlights, pointer, equation chip, success modal */
 .brandmark{display:inline-flex;align-items:center;gap:8px}
 .brandmark .hdr-mark{height:30px;width:30px}
@@ -535,7 +561,7 @@ body{font-size:15px;-webkit-font-smoothing:antialiased}
 <div class="coach-hand" id="coachHand" aria-hidden="true" hidden></div>
   <header class="top">
     <h1 style="margin:0"><a class="brandmark" href="../" aria-label="Equacross home"><img class="hdr-mark" src="../assets/brand/nav-mark.svg" alt="" width="30" height="30"><img class="logo-light" src="../assets/brand/logo-wordmark.svg" alt="Equacross" width="190" height="45"><img class="logo-dark" src="../assets/brand/logo-wordmark-on-dark.svg" alt="Equacross" width="190" height="45"></a></h1>
-    <nav class="top-nav" aria-label="Games"><button class="btn nav-btn" id="bGames">My games</button><button class="btn nav-btn" id="bNew">New game</button></nav>
+    <nav class="top-nav" aria-label="Games"><button class="btn nav-btn" id="bGames">My games</button><button class="btn nav-btn" id="bNew">New game</button><button class="btn nav-btn acct-btn" id="bAcct" aria-label="Account"></button></nav>
     <div class="scores" id="scores"></div>
   </header>
 
@@ -864,7 +890,7 @@ async function makePuzzle(seed, holeCount) {
 function todayId() { const d = new Date(); const t = new Date(d.getFullYear(), d.getMonth(), d.getDate()); return Math.round((t - EPOCH) / 86400000) + 1; }
 const DKEY = 'equatile.daily';
 function dailyRecords() { try { return JSON.parse(localStorage.getItem(DKEY)) || {}; } catch (e) { return {}; } }
-function saveDaily(id, rec) { try { const all = dailyRecords(); all[id] = rec; localStorage.setItem(DKEY, JSON.stringify(all)); } catch (e) {} }
+function saveDaily(id, rec) { try { const all = dailyRecords(); all[id] = rec; localStorage.setItem(DKEY, JSON.stringify(all)); } catch (e) {} syncSoon(); }
 // Daily streak: consecutive solved dailies ending today (or yesterday, if today isn't solved yet).
 function dailyStreak() {
   const recs = dailyRecords(), t = todayId(), ok = id => recs[id] && recs[id].solved;
@@ -876,7 +902,7 @@ function dailyStreak() {
 // Personal stats, kept on this device.
 const STKEY = 'equatile.stats';
 function readStats() { try { return JSON.parse(localStorage.getItem(STKEY)) || {}; } catch (e) { return {}; } }
-function writeStats(st) { try { localStorage.setItem(STKEY, JSON.stringify(st)); } catch (e) {} }
+function writeStats(st) { try { localStorage.setItem(STKEY, JSON.stringify(st)); } catch (e) {} syncSoon(); }
 function recordPlay(res, pl) {
   const st = readStats();
   st.plays = (st.plays || 0) + 1;
@@ -897,7 +923,7 @@ function recordResult(mine, theirs, key) {
   writeStats(st); save();
 }
 function statsHTML() {
-  const st = readStats(), g = st.games || {}, ds = dailyStreak();
+  const st = combinedStats(), g = st.games || {}, ds = dailyStreak();
   const wl = k => { const x = g[k]; return x ? `${x.w}–${x.l}${x.t ? '–' + x.t : ''}` : '0–0'; };
   const cell = (label, value, sub) => `<div class="stat"><span class="sv">${value}</span><span class="sl">${label}</span>${sub ? `<span class="ss">${sub}</span>` : ''}</div>`;
   return `<div class="stats" aria-label="Your stats">
@@ -1025,7 +1051,9 @@ async function maybeAI() {
 /* ---------- online play ---------- */
 async function api(body) {
   let r;
-  try { r = await fetch(FN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SB_KEY }, body: JSON.stringify(body) }); }
+  const headers = { 'Content-Type': 'application/json', apikey: SB_KEY };
+  const tok = acct.session && acct.session.access_token; if (tok) headers.Authorization = 'Bearer ' + tok;
+  try { r = await fetch(FN_URL, { method: 'POST', headers, body: JSON.stringify(body) }); }
   catch (e) { throw new Error('Couldn’t reach the game server. Check your connection. Online play needs the hosted version of Equacross.'); }
   let out = {}; try { out = await r.json(); } catch (e) {}
   if (!r.ok) throw new Error(out.error || 'The game server had a problem. Try again.');
@@ -1088,7 +1116,7 @@ function listen() {
   try {
     if (channel) { channel.unsubscribe(); channel = null; }
     if (!isOn() || !window.supabase) return;
-    sbClient = sbClient || window.supabase.createClient(SB_URL, SB_KEY);
+    sbClient = sbClient || sbAuth || window.supabase.createClient(SB_URL, SB_KEY);
     channel = sbClient.channel(`equatile-${S.online.gameId}`).on('broadcast', { event: 'update' }, () => refresh()).subscribe();
   } catch (e) { channel = null; }
 }
@@ -1362,10 +1390,12 @@ function render() {
   $('bNew').disabled = ui.thinking;
   $('bGames').disabled = ui.thinking;
   const yourTurn = readIndex().list.filter(e => e.you && e.mode === 'online' && e.id !== S.id).length;
-  $('bGames').textContent = yourTurn ? `My games · ${yourTurn} your turn` : 'My games';
+  { const g = $('bGames'), h = yourTurn ? `My games <span class="nbadge">${yourTurn}</span>` : 'My games';
+    if (g.dataset.h !== h) { g.innerHTML = h; g.dataset.h = h; }
+    g.setAttribute('aria-label', yourTurn ? `My games, ${yourTurn} waiting on your turn` : 'My games'); }
   saveSoon();
   $('logPanel').hidden = pz;
-  renderPreview(); if (!pz) renderLog(); renderModal(); renderWB(); renderCoach();
+  renderPreview(); if (!pz) renderLog(); renderModal(); renderWB(); renderCoach(); renderAcctButton();
 }
 function renderPreview() {
   const el = $('preview');
@@ -1403,7 +1433,9 @@ function renderModal() {
   const ov = $('overlay'), m = $('modal');
   let html = '';
   const pz = isPz();
-  if (S.modal === 'tutdone') {
+  if (S.modal === 'account') {
+    html = accountHTML();
+  } else if (S.modal === 'tutdone') {
     const eq = S.tutEq || ['9', '−', '7', '=', '2'];
     html = `<div class="tut-chip">${eqChipHTML(eq, `<span id="tutPts" data-to="${S.tutPts || 0}">${S.tutPts || 0}</span>`)}</div>
       <h2 class="tut-h"><svg class="tut-spark" viewBox="-14 -48 70 42" aria-hidden="true"><g stroke="#C83C30" stroke-width="10" stroke-linecap="round"><line x1="0" y1="-19" x2="-8" y2="-34"/><line x1="17" y1="-21" x2="19" y2="-42"/><line x1="33" y1="-14" x2="49" y2="-27"/></g></svg>That’s the whole idea!</h2>
@@ -1432,7 +1464,7 @@ function renderModal() {
           <label><input type="radio" name="ok" id="okNew" value="create" ${ui.joinCode ? '' : 'checked'}>Start a game<small>get a code to share</small></label>
           <label><input type="radio" name="ok" id="okJoin" value="join" ${ui.joinCode ? 'checked' : ''}>Join a game<small>enter their code</small></label>
         </div>
-        <label class="field">Your name<input id="nOn" value="" placeholder="Your name" maxlength="24"></label>
+        <label class="field">Your name<input id="nOn" value="${esc(acct.name || '')}" placeholder="Your name" maxlength="24"></label>
         <label class="field" id="fCode">Game code<input id="cOn" value="${esc(ui.joinCode || '')}" placeholder="6 letters and numbers" maxlength="6" autocapitalize="characters" autocomplete="off"></label>
       </div>
       <div class="sub" id="secAi"><span class="lbl">Computer difficulty</span>
@@ -1460,6 +1492,7 @@ function renderModal() {
     const ix = readIndex();
     const ago = t => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'just now' : m < 60 ? `${m}m ago` : m < 1440 ? `${Math.round(m / 60)}h ago` : `${Math.round(m / 1440)}d ago`; };
     html = `<h2>My games</h2>
+      ${acctLineHTML()}
       ${statsHTML()}
       <p>Every game saves on this device. Tap one to open it.</p>
       <div class="glist">${ix.list.map(e => `<div class="grow ${e.id === S.id ? 'cur' : ''}">
@@ -1500,6 +1533,7 @@ function renderModal() {
   if (m.dataset.sig === html) return;
   m.dataset.sig = html; m.innerHTML = html;
   const on = (id, f) => { const b = $(id); if (b) b.addEventListener('click', f); };
+  if (S.modal === 'account') bindAccount(m);
   on('mTutGo', () => { S.modal = null; save(); render(); maybeAI(); });
   const tp = $('tutPts');
   if (tp && !matchMedia('(prefers-reduced-motion: reduce)').matches) { // count the score up
@@ -2116,6 +2150,178 @@ function endDrag(drop) {
 }
 document.addEventListener('pointerup', () => endDrag(true));
 document.addEventListener('pointercancel', () => endDrag(false));
+
+/* ---------- accounts ---------- */
+// Sign-in uses Supabase Auth (Apple, Google, email). Everything still works signed out; an account
+// carries stats, daily results and online games between devices.
+const sbAuth = window.supabase ? window.supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce', storageKey: 'equatile.auth' } }) : null;
+const ACKEY = 'equatile.acct', DEVKEY = 'equatile.device';
+const acct = (() => { try { return { ...(JSON.parse(localStorage.getItem(ACKEY)) || {}), session: null }; } catch (e) { return { session: null }; } })();
+acct.stage = 'pick'; acct.msg = ''; acct.err = false; acct.busy = false;
+function saveAcct() { try { const { name, email, provider, devices, syncedAt, uid } = acct; localStorage.setItem(ACKEY, JSON.stringify({ name, email, provider, devices, syncedAt, uid })); } catch (e) {} }
+function deviceId() { try { let d = localStorage.getItem(DEVKEY); if (!d) { d = 'd-' + newId(); localStorage.setItem(DEVKEY, d); } return d; } catch (e) { return 'd-unknown'; } }
+const signedIn = () => !!(acct.session && acct.session.user);
+// Stats on screen: this device's live numbers plus the other devices' last snapshots.
+function combinedStats() {
+  const mine = readStats();
+  if (!signedIn() || !acct.devices) return mine;
+  const all = [mine, ...Object.entries(acct.devices).filter(([d]) => d !== deviceId()).map(([, v]) => v || {})];
+  const out = { games: {} };
+  for (const st of all) {
+    for (const k of ['plays', 'bingos', 'opPlays']) out[k] = (out[k] || 0) + (st[k] || 0);
+    if (st.best && (!out.best || st.best.pts > out.best.pts)) out.best = st.best;
+    if (st.longest && (!out.longest || st.longest.len > out.longest.len)) out.longest = st.longest;
+    for (const [k, g] of Object.entries(st.games || {})) { const o = out.games[k] || (out.games[k] = { w: 0, l: 0, t: 0 }); o.w += g.w || 0; o.l += g.l || 0; o.t += g.t || 0; }
+  }
+  return out;
+}
+let syncTimer = null, syncing2 = false;
+function syncSoon() { if (!signedIn()) return; clearTimeout(syncTimer); syncTimer = setTimeout(() => accountSync(false), 1500); }
+async function accountSync(full) {
+  if (!signedIn() || syncing2) return;
+  syncing2 = true;
+  try {
+    if (full) {
+      // attach online games this device created or joined
+      const games = readIndex().list.filter(e => e.mode === 'online').map(e => readGame(e.id)).filter(G => G && G.online && G.online.token).map(G => ({ gameId: G.online.gameId, token: G.online.token }));
+      if (games.length) await api({ action: 'link', games });
+    }
+    const daily = {}; for (const [id, r] of Object.entries(dailyRecords())) { const { board, ...rest } = r || {}; daily[id] = rest; }
+    const out = await api({ action: 'sync', device: deviceId(), stats: readStats(), daily });
+    acct.devices = out.devices; acct.syncedAt = Date.now(); if (out.name) acct.name = out.name;
+    // bring in daily results solved on other devices
+    const local = dailyRecords(); let changed = false;
+    for (const [id, r] of Object.entries(out.daily || {})) if (r && (!local[id] || (r.solved && !local[id].solved))) { local[id] = r; changed = true; }
+    if (changed) try { localStorage.setItem(DKEY, JSON.stringify(local)); } catch (e) {}
+    if (full) {
+      const me = await api({ action: 'me' });
+      acct.name = me.name || acct.name || ''; acct.email = me.user.email; acct.provider = me.user.provider;
+      const have = new Set(readIndex().list.filter(e => e.mode === 'online').map(e => { const G = readGame(e.id); return G && G.online && G.online.gameId; }));
+      let added = 0;
+      for (const g of me.games) {
+        if (have.has(g.gameId)) continue;
+        const mineName = acct.name || 'You', P = [{}, {}];
+        P[g.seat] = { name: mineName, score: g.score, ai: false, rack: [] }; P[1 - g.seat] = { name: g.opp || 'Waiting…', score: g.oppScore, ai: false, rack: [] };
+        const G = { id: newId(), mode: 'online', board: Array(N * N).fill(null), players: P, bag: [], turn: 0, scoreless: 0, log: [], over: g.status === 'over', last: [], handoff: false, modal: null,
+                    online: { gameId: g.gameId, token: null, seat: g.seat, code: g.code, status: g.status, version: -1 } };
+        writeGame(G); const ix = readIndex(); indexEntry(ix, G); writeIndex(ix); added++;
+      }
+      if (added) refreshOnlineList();
+    }
+    acct.msg = ''; acct.err = false;
+  } catch (e) { acct.msg = e.message; acct.err = true; }
+  saveAcct(); syncing2 = false;
+  if (S && (S.modal === 'account' || S.modal === 'games')) render();
+}
+if (sbAuth) {
+  sbAuth.auth.onAuthStateChange((event, session) => {
+    const was = acct.uid;
+    acct.session = session;
+    if (session && session.user) {
+      acct.uid = session.user.id; acct.email = session.user.email || acct.email;
+      acct.provider = (session.user.app_metadata && session.user.app_metadata.provider) || acct.provider;
+      if (/[?&]code=/.test(location.search)) try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {}
+      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+        if (event === 'SIGNED_IN' && was !== acct.uid && S && S.modal === 'account') { acct.stage = 'pick'; acct.msg = ''; }
+        setTimeout(() => accountSync(true), 0);
+      }
+    } else if (event === 'SIGNED_OUT') { acct.uid = null; acct.devices = null; }
+    saveAcct(); if (S) render();
+  });
+}
+// Which sign-in methods are turned on for the project.
+let providers = null;
+async function loadProviders() {
+  if (providers || !sbAuth) return;
+  try { const r = await fetch(`${SB_URL}/auth/v1/settings`, { headers: { apikey: SB_KEY } }); const j = await r.json(); providers = j.external || {}; } catch (e) { providers = {}; }
+  if (S && S.modal === 'account') render();
+}
+const APPLE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.37 12.6c-.02-2.4 1.96-3.56 2.05-3.62-1.12-1.63-2.86-1.86-3.48-1.88-1.48-.15-2.89.87-3.64.87-.75 0-1.91-.85-3.14-.83-1.62.02-3.11.94-3.94 2.39-1.68 2.92-.43 7.24 1.21 9.6.8 1.16 1.75 2.46 3 2.41 1.2-.05 1.66-.78 3.11-.78 1.46 0 1.86.78 3.13.75 1.3-.02 2.12-1.18 2.91-2.34.92-1.34 1.3-2.65 1.32-2.72-.03-.01-2.53-.97-2.55-3.85zM13.98 5.55c.66-.8 1.11-1.92.99-3.03-.95.04-2.11.64-2.8 1.44-.61.71-1.15 1.85-1 2.94 1.06.08 2.15-.54 2.81-1.35z"/></svg>';
+const GOOGLE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.46a5.52 5.52 0 0 1-2.4 3.62v3h3.88c2.27-2.09 3.56-5.17 3.56-8.81z"/><path fill="#34A853" d="M12 24c3.24 0 5.96-1.07 7.94-2.92l-3.88-3c-1.07.72-2.45 1.15-4.06 1.15-3.12 0-5.77-2.11-6.71-4.95H1.28v3.1A12 12 0 0 0 12 24z"/><path fill="#FBBC05" d="M5.29 14.28a7.2 7.2 0 0 1 0-4.56v-3.1H1.28a12 12 0 0 0 0 10.76z"/><path fill="#EA4335" d="M12 4.77c1.76 0 3.34.61 4.59 1.8l3.44-3.44A11.97 11.97 0 0 0 12 0 12 12 0 0 0 1.28 6.62l4.01 3.1C6.23 6.88 8.88 4.77 12 4.77z"/></svg>';
+function acctLineHTML() {
+  if (!sbAuth) return '';
+  return signedIn()
+    ? `<p class="acct-line">Signed in as <b>${esc(acct.name || acct.email || 'you')}</b>. Stats, streaks and online games sync to your account. <button type="button" class="linkbtn" id="mAcct">Account</button></p>`
+    : `<p class="acct-line"><button type="button" class="linkbtn" id="mAcct">Sign in</button> to keep your stats, streaks and online games on every device.</p>`;
+}
+function accountHTML() {
+  if (!sbAuth) return `<h2>Account</h2><p>Sign-in isn’t available right now. Check your connection and try again.</p><div class="row-end"><button class="btn" id="mCancel">Close</button></div>`;
+  const msg = acct.msg ? `<p class="acct-msg ${acct.err ? 'err' : ''}" role="status">${esc(acct.msg)}</p>` : '';
+  if (signedIn()) {
+    const via = { apple: 'Apple', google: 'Google', email: 'email' }[acct.provider] || acct.provider || 'email';
+    return `<h2>Your account</h2>
+      <p class="acct-who">${esc(acct.email || 'Signed in')} <span class="acct-via">via ${esc(via)}</span></p>
+      <label class="field">Name shown to other players<input id="aName" value="${esc(acct.name || '')}" placeholder="Your name" maxlength="24"></label>
+      <p class="fine">${acct.syncedAt ? 'Synced ' + new Date(acct.syncedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '.' : 'Syncing…'} Your games also stay saved on this device.</p>
+      ${msg}
+      ${acct.confirmDel ? `<div class="acct-del"><p><b>Delete your account?</b> This removes your saved stats, streaks and sign-in. Games on this device stay, and online games keep working here.</p><div class="row-end"><button class="btn" id="aDelNo">Keep it</button><button class="btn danger" id="aDelYes" ${acct.busy ? 'disabled' : ''}>Delete account</button></div></div>` : ''}
+      <div class="row-end acct-actions">${acct.confirmDel ? '' : '<button type="button" class="linkbtn danger-link" id="aDel">Delete account</button>'}<span class="sp"></span><button class="btn" id="aOut">Sign out</button><button class="btn primary" id="aSave">Done</button></div>`;
+  }
+  loadProviders();
+  const pv = providers || {};
+  if (acct.stage === 'code') return `<h2>Check your email</h2>
+      <p>We sent a sign-in email to <b>${esc(acct.email || '')}</b>. Tap the link in it, or enter the 6-digit code here.</p>
+      <label class="field">Code<input id="aCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" value="${esc(acct.code || '')}"></label>
+      ${msg}
+      <div class="row-end"><button class="btn" id="aBack">Back</button><button class="btn primary" id="aVerify" ${acct.busy ? 'disabled' : ''}>Sign in</button></div>`;
+  return `<h2>Sign in</h2>
+    <p>Keep your stats, daily streak and online games on every device. You can keep playing without an account.</p>
+    <div class="acct-providers">
+      ${pv.apple !== false ? `<button class="btn sso apple" id="aApple" ${providers && !pv.apple ? 'disabled' : ''}>${APPLE_SVG}<span>Continue with Apple</span></button>` : ''}
+      ${pv.google !== false ? `<button class="btn sso google" id="aGoogle" ${providers && !pv.google ? 'disabled' : ''}>${GOOGLE_SVG}<span>Continue with Google</span></button>` : ''}
+    </div>
+    ${providers && (!pv.apple || !pv.google) ? `<p class="fine">${!pv.apple && !pv.google ? 'Apple and Google sign-in are' : (!pv.apple ? 'Apple' : 'Google') + ' sign-in is'} coming soon.</p>` : ''}
+    <div class="acct-or"><span>or use email</span></div>
+    <label class="field">Email<input id="aEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" value="${esc(acct.email || '')}"></label>
+    ${msg}
+    <div class="row-end"><button class="btn" id="mCancel">Not now</button><button class="btn primary" id="aSend" ${acct.busy ? 'disabled' : ''}>Email me a code</button></div>`;
+}
+function bindAccount(m) {
+  const on = (id, f) => { const b = $(id); if (b) b.addEventListener('click', f); };
+  const redirect = location.origin + location.pathname;
+  const fail = e => { acct.busy = false; acct.msg = e && e.message ? e.message : 'Something went wrong. Try again.'; acct.err = true; m.dataset.sig = ''; render(); };
+  const oauth = provider => async () => { acct.busy = true; acct.msg = ''; try { if (S) save(); const { error } = await sbAuth.auth.signInWithOAuth({ provider, options: { redirectTo: redirect } }); if (error) throw error; } catch (e) { fail(e); } };
+  on('aApple', oauth('apple')); on('aGoogle', oauth('google'));
+  const em = $('aEmail'); if (em) em.addEventListener('input', () => { acct.email = em.value.trim(); });
+  const cd = $('aCode'); if (cd) { cd.addEventListener('input', () => { acct.code = cd.value.replace(/\D/g, '').slice(0, 6); }); setTimeout(() => cd.focus(), 0); }
+  on('aSend', async () => {
+    const email = (acct.email || '').trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { acct.msg = 'Enter a valid email address.'; acct.err = true; m.dataset.sig = ''; return render(); }
+    acct.busy = true; acct.msg = ''; m.dataset.sig = ''; render();
+    try { const { error } = await sbAuth.auth.signInWithOtp({ email, options: { emailRedirectTo: redirect } }); if (error) throw error; acct.busy = false; acct.stage = 'code'; acct.code = ''; m.dataset.sig = ''; render(); }
+    catch (e) { fail(/not authorized/i.test(e.message || '') ? new Error('We can’t send email to that address yet. Try Google or Apple, or try again later.') : e); }
+  });
+  on('aBack', () => { acct.stage = 'pick'; acct.msg = ''; m.dataset.sig = ''; render(); });
+  on('aVerify', async () => {
+    if (!/^\d{6}$/.test(acct.code || '')) { acct.msg = 'Enter the 6-digit code from the email.'; acct.err = true; m.dataset.sig = ''; return render(); }
+    acct.busy = true; acct.msg = ''; m.dataset.sig = ''; render();
+    try { const { error } = await sbAuth.auth.verifyOtp({ email: acct.email, token: acct.code, type: 'email' }); if (error) throw error; acct.busy = false; acct.stage = 'pick'; m.dataset.sig = ''; render(); }
+    catch (e) { fail(e.message && /expired|invalid/i.test(e.message) ? new Error('That code didn’t work or has expired. Check it, or go back and send a new one.') : e); }
+  });
+  on('aSave', async () => {
+    const v = ($('aName') || {}).value; S.modal = null; render();
+    if (v != null && v.trim() !== (acct.name || '')) { try { const out = await api({ action: 'setname', name: v }); acct.name = out.name; saveAcct(); } catch (e) {} }
+  });
+  on('aOut', async () => { try { await sbAuth.auth.signOut(); } catch (e) {} acct.session = null; acct.devices = null; acct.stage = 'pick'; acct.msg = ''; saveAcct(); S.modal = null; render(); });
+  on('aDel', () => { acct.confirmDel = true; m.dataset.sig = ''; render(); });
+  on('aDelNo', () => { acct.confirmDel = false; m.dataset.sig = ''; render(); });
+  on('aDelYes', async () => {
+    acct.busy = true; m.dataset.sig = ''; render();
+    try { await api({ action: 'deleteAccount' }); await sbAuth.auth.signOut().catch(() => {}); acct.session = null; acct.devices = null; acct.name = ''; acct.confirmDel = false; acct.busy = false; acct.msg = 'Your account was deleted.'; acct.err = false; saveAcct(); m.dataset.sig = ''; render(); }
+    catch (e) { acct.confirmDel = false; fail(e); }
+  });
+}
+function renderAcctButton() {
+  const b = $('bAcct'); if (!b) return;
+  b.hidden = !sbAuth;
+  const si = signedIn(), label = si ? (acct.name || acct.email || '?').trim()[0].toUpperCase() : '';
+  const html = si ? `<span class="av">${esc(label)}</span>` : `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="4" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M4.5 20c1.2-3.6 4.2-5.5 7.5-5.5s6.3 1.9 7.5 5.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg><span class="lbl">Sign in</span>`;
+  if (b.dataset.h !== html) { b.innerHTML = html; b.dataset.h = html; }
+  b.classList.toggle('in', si);
+  b.setAttribute('aria-label', si ? 'Account, signed in' : 'Sign in');
+}
+$('bAcct').addEventListener('click', () => { if (ui.thinking) return; acct.stage = signedIn() ? acct.stage : 'pick'; acct.msg = ''; acct.confirmDel = false; S.modal = 'account'; render(); });
+document.addEventListener('click', e => { if (e.target && e.target.id === 'mAcct') { acct.msg = ''; S.modal = 'account'; render(); } });
 
 /* ---------- guided first move ---------- */
 const TUTKEY = 'equatile.tutorial';

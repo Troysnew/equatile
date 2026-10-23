@@ -1,12 +1,14 @@
 // @ts-nocheck
-// Equatile online play. All game state lives in the private "equatile" schema,
+// Equacross online play and accounts. All state lives in the private "equatile" schema,
 // reached only through this function, so racks and the bag stay hidden.
+// A player is identified by their per-game token, or by their signed-in account.
 import postgres from 'npm:postgres@3.4.5';
 import { N, RACK, PTS, DIST, evaluate } from './engine.js';
 
 const sql = postgres(Deno.env.get('SUPABASE_DB_URL'), { prepare: false, max: 3 });
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -45,13 +47,27 @@ function view(g, ps, seat) {
   };
 }
 
-async function load(tx, gameId, token, lock = true) {
+// The signed-in user, if the request carries a valid Supabase Auth access token.
+async function authUser(req) {
+  const m = /^Bearer\s+(\S+)$/i.exec(req.headers.get('authorization') || '');
+  if (!m || m[1].split('.').length !== 3) return null;   // API keys are not user tokens
+  try {
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { apikey: ANON_KEY || SERVICE_KEY, Authorization: `Bearer ${m[1]}` } });
+    if (!r.ok) return null;
+    const u = await r.json();
+    return u && u.id ? u : null;
+  } catch (_) { return null; }
+}
+const needUser = b => { if (!b.__user) throw new Fail('Sign in first.', 401); return b.__user; };
+const isUuid = x => /^[0-9a-f-]{36}$/.test(String(x));
+
+async function load(tx, gameId, token, lock = true, user = null) {
   if (!/^[0-9a-f-]{36}$/.test(String(gameId))) throw new Fail('Game not found.', 404);
   const [g] = lock ? await tx`select * from equatile.games where id = ${gameId} for update` : await tx`select * from equatile.games where id = ${gameId}`;
   if (!g) throw new Fail('Game not found.', 404);
   const ps = await tx`select * from equatile.players where game_id = ${gameId} order by seat`;
   const h = await hash(String(token || ''));
-  const me = ps.find(p => p.token_hash === h);
+  const me = (token && ps.find(p => p.token_hash === h)) || (user && ps.find(p => p.user_id === user.id));
   if (!me) throw new Fail('That link or code doesn’t belong to a player in this game.', 403);
   return { g, ps, seat: me.seat };
 }
@@ -86,8 +102,8 @@ const actions = {
       const code = makeCode();
       try {
         const [g] = await sql`insert into equatile.games (code, board, bag) values (${code}, ${sql.json(Array(N * N).fill(null))}, ${sql.json(bag)}) returning *`;
-        await sql`insert into equatile.players (game_id, seat, name, token_hash, rack) values
-          (${g.id}, 0, ${cleanName(b.name, 'Player 1')}, ${h}, ${sql.json(r0)}), (${g.id}, 1, '', '', ${sql.json(r1)})`;
+        await sql`insert into equatile.players (game_id, seat, name, token_hash, rack, user_id) values
+          (${g.id}, 0, ${cleanName(b.name, 'Player 1')}, ${h}, ${sql.json(r0)}, ${b.__user ? b.__user.id : null}), (${g.id}, 1, '', '', ${sql.json(r1)}, null)`;
         const ps = await sql`select * from equatile.players where game_id = ${g.id} order by seat`;
         return { token, ...view(g, ps, 0) };
       } catch (e) { if (!String(e.message).includes('duplicate')) throw e; }
@@ -100,8 +116,9 @@ const actions = {
       const [g] = await tx`select * from equatile.games where code = ${code} for update`;
       if (!g) throw new Fail('No game with that code.', 404);
       if (g.status !== 'waiting') throw new Fail('That game already has two players.', 409);
-      const token = makeToken();
-      await tx`update equatile.players set name = ${cleanName(b.name, 'Player 2')}, token_hash = ${await hash(token)} where game_id = ${g.id} and seat = 1`;
+      const token = makeToken(), uid = b.__user ? b.__user.id : null;
+      if (uid) { const [host] = await tx`select user_id from equatile.players where game_id = ${g.id} and seat = 0`; if (host && host.user_id === uid) throw new Fail('That’s your own game. Send the code to someone else.', 409); }
+      await tx`update equatile.players set name = ${cleanName(b.name, 'Player 2')}, token_hash = ${await hash(token)}, user_id = ${uid} where game_id = ${g.id} and seat = 1`;
       g.status = 'active';
       const ps = await tx`select * from equatile.players where game_id = ${g.id} order by seat`;
       await save(tx, g, ps);
@@ -109,13 +126,77 @@ const actions = {
       return { token, ...view(g, ps, 1) };
     });
   },
+  // ---------- accounts ----------
+  async me(b) {
+    const u = needUser(b);
+    const [a] = await sql`select * from equatile.accounts where user_id = ${u.id}`;
+    const games = await sql`select g.id, g.code, g.status, g.turn, g.version, g.updated_at, p.seat, p.score, o.name as opp, o.score as opp_score
+      from equatile.players p join equatile.games g on g.id = p.game_id
+      left join equatile.players o on o.game_id = p.game_id and o.seat = 1 - p.seat
+      where p.user_id = ${u.id} order by g.updated_at desc limit 50`;
+    return {
+      user: { id: u.id, email: u.email || null, provider: (u.app_metadata && u.app_metadata.provider) || null },
+      name: a ? a.name : '', devices: a ? a.devices : {}, daily: a ? a.daily : {},
+      games: games.map(r => ({ gameId: r.id, code: r.code, status: r.status, seat: r.seat, yourTurn: r.status === 'active' && r.turn === r.seat, score: r.score, opp: r.opp || '', oppScore: r.opp_score || 0, version: r.version, updated: r.updated_at })),
+    };
+  },
+  // Stores this device's stats snapshot and merges daily results; returns the combined account data.
+  async sync(b) {
+    const u = needUser(b);
+    const device = String(b.device || '');
+    if (!/^[A-Za-z0-9-]{6,40}$/.test(device)) throw new Fail('Bad device id.');
+    const stats = b.stats && typeof b.stats === 'object' ? b.stats : {};
+    if (JSON.stringify(stats).length > 20000) throw new Fail('Stats too large.');
+    const inDaily = b.daily && typeof b.daily === 'object' ? b.daily : {};
+    return await sql.begin(async tx => {
+      await tx`insert into equatile.accounts (user_id) values (${u.id}) on conflict (user_id) do nothing`;
+      const [a] = await tx`select * from equatile.accounts where user_id = ${u.id} for update`;
+      const daily = { ...a.daily };
+      for (const [id, r] of Object.entries(inDaily).slice(0, 2000)) {
+        if (!/^\d{1,6}$/.test(id) || !r || typeof r !== 'object') continue;
+        const clean = { solved: !!r.solved, checks: Math.max(0, r.checks | 0), reveals: Math.max(0, r.reveals | 0), elapsed: Math.max(0, r.elapsed | 0), history: Array.isArray(r.history) ? r.history.filter(x => ['o', 'r', 'x'].includes(x)).slice(0, 60) : [] };
+        const cur = daily[id];
+        if (!cur || (clean.solved && !cur.solved)) daily[id] = clean;   // first result wins; a solve beats an unsolved try
+      }
+      const devices = { ...a.devices, [device]: { ...stats, at: Date.now() } };
+      await tx`update equatile.accounts set devices = ${tx.json(devices)}, daily = ${tx.json(daily)}, updated_at = now() where user_id = ${u.id}`;
+      return { name: a.name, devices, daily };
+    });
+  },
+  // Attaches online games this device holds tokens for to the signed-in account.
+  async link(b) {
+    const u = needUser(b);
+    let linked = 0;
+    for (const x of (Array.isArray(b.games) ? b.games : []).slice(0, 50)) {
+      if (!x || !isUuid(x.gameId) || !x.token) continue;
+      const h = await hash(String(x.token));
+      const r = await sql`update equatile.players set user_id = ${u.id} where game_id = ${x.gameId} and token_hash = ${h} and (user_id is null or user_id = ${u.id}) returning seat`;
+      linked += r.length;
+    }
+    return { linked };
+  },
+  async setname(b) {
+    const u = needUser(b), name = cleanName(b.name, '');
+    await sql`insert into equatile.accounts (user_id, name) values (${u.id}, ${name}) on conflict (user_id) do update set name = ${name}, updated_at = now()`;
+    return { name };
+  },
+  // Deletes the account and its saved data. Online games stay playable on devices that still hold their tokens.
+  async deleteAccount(b) {
+    const u = needUser(b);
+    await sql`update equatile.players set user_id = null where user_id = ${u.id}`;
+    await sql`delete from equatile.accounts where user_id = ${u.id}`;
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${u.id}`, { method: 'DELETE', headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } });
+    if (!r.ok) throw new Fail('Couldn’t delete the sign-in. Try again, or email support@equacross.com.', 502);
+    return { deleted: true };
+  },
+  // ---------- games ----------
   async state(b, after) {
-    const { g, ps, seat } = await load(sql, b.gameId, b.token, false);
+    const { g, ps, seat } = await load(sql, b.gameId, b.token, false, b.__user);
     return view(g, ps, seat);
   },
   async play(b, after) {
     return await sql.begin(async tx => {
-      const { g, ps, seat } = await load(tx, b.gameId, b.token);
+      const { g, ps, seat } = await load(tx, b.gameId, b.token, true, b.__user);
       if (g.status !== 'active') throw new Fail(g.status === 'waiting' ? 'Waiting for the other player to join.' : 'This game is over.', 409);
       if (g.turn !== seat) throw new Fail('It’s not your turn.', 409);
       const me = ps[seat];
@@ -139,7 +220,7 @@ const actions = {
   },
   async swap(b, after) {
     return await sql.begin(async tx => {
-      const { g, ps, seat } = await load(tx, b.gameId, b.token);
+      const { g, ps, seat } = await load(tx, b.gameId, b.token, true, b.__user);
       if (g.status !== 'active' || g.turn !== seat) throw new Fail('It’s not your turn.', 409);
       const me = ps[seat], digits = (Array.isArray(b.digits) ? b.digits : []).map(d => d | 0);
       if (!digits.length) throw new Fail('Pick tiles to swap.');
@@ -155,7 +236,7 @@ const actions = {
   },
   async pass(b, after) {
     return await sql.begin(async tx => {
-      const { g, ps, seat } = await load(tx, b.gameId, b.token);
+      const { g, ps, seat } = await load(tx, b.gameId, b.token, true, b.__user);
       if (g.status !== 'active' || g.turn !== seat) throw new Fail('It’s not your turn.', 409);
       scorelessTurn(g, ps, seat, 'Passed');
       await save(tx, g, ps);
@@ -165,7 +246,7 @@ const actions = {
   },
   async resign(b, after) {
     return await sql.begin(async tx => {
-      const { g, ps, seat } = await load(tx, b.gameId, b.token);
+      const { g, ps, seat } = await load(tx, b.gameId, b.token, true, b.__user);
       if (g.status === 'over') throw new Fail('This game is over.', 409);
       g.log.unshift({ who: seat, note: 'Resigned', pts: 0 });
       g.status = 'over'; g.out_seat = null;
@@ -184,6 +265,7 @@ Deno.serve(async req => {
   try { body = await req.json(); } catch { return json({ error: 'Bad request.' }, 400); }
   const fn = actions[body?.action];
   if (!fn) return json({ error: 'Unknown action.' }, 400);
+  body.__user = await authUser(req);
   const after = [];
   try { const out = await fn(body, after); for (const f of after) await f(); return json(out); }
   catch (e) {
