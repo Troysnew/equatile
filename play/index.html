@@ -410,6 +410,7 @@ body{font-size:15px;-webkit-font-smoothing:antialiased}
 .chip.on{border:2px solid var(--pencil);padding:5px 13px 6px;background:var(--card)}
 .chip.on .nm{color:var(--pencil)}
 .chip.on .nm::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--pencil);margin-right:6px;vertical-align:1px}
+@media (max-width:560px){.chip{min-width:0;padding:5px 10px 6px}.chip.on{padding:4px 9px 5px}.chip .sc{font-size:1.4rem}}
 .chip.dim{min-width:64px;padding:6px 12px 7px;background:transparent;border-color:var(--line);box-shadow:none}
 .chip.dim .sc{font-size:1.2rem;color:var(--muted);line-height:1.35}
 .chip.turned{animation:turnIn .35s var(--ease)}
@@ -1383,7 +1384,7 @@ function renderScores() {
     $('scores').innerHTML = `<div class="chip on"><span class="nm">${P.kind === 'daily' ? 'Daily' : 'Random'}</span><span class="sc">${P.kind === 'daily' ? '#' + P.id : LEVELS[P.level].label}</span></div>
       <div class="chip"><span class="nm">Time</span><span class="sc" id="tmr">${fmtTime(P.elapsed)}</span></div>
       <div class="chip"><span class="nm">Checks</span><span class="sc">${P.checks}</span></div>
-      <div class="chip dim"><span class="nm">Squares left</span><span class="sc">${openHoles().length}</span></div>`;
+      <div class="chip dim"><span class="nm">Squares left</span><span class="sc">${openHoles().filter(k => !ui.pending.some(t => t.k === k)).length}</span></div>`;
     return;
   }
   $('scores').innerHTML = S.players.map((p, i) => `<div class="chip ${!S.over && i === S.turn && (!isOn() || S.online.status === 'active') ? 'on' : ''}"><span class="nm">${esc(p.name)}${p.ai ? ' · ' + LEVELS[S.level].label : ''}${isOn() && i === S.online.seat ? (isCoop() ? '' : ' (you)') : ''}${!S.over && i === S.turn && (!isOn() || S.online.status === 'active') ? ' · to play' : ''}</span><span class="sc">${p.score}</span></div>`).join('')
