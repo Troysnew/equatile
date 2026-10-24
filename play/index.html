@@ -12,7 +12,45 @@
 <link rel="preload" href="../assets/fonts/nunito-sans-latin-900-normal.woff2" as="font" type="font/woff2" crossorigin>
 <meta name="description" content="Play Equacross: a Scrabble-style game with number tiles where every line is an equation.">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}
+/* groups */
+.grp-entry{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);border-radius:12px;padding:10px 12px;cursor:pointer;font:500 .92rem var(--f-body)}
+.grp-entry:hover{border-color:var(--pencil)}
+.grp-entry > span:nth-child(2){flex:1;display:flex;flex-direction:column;gap:1px;min-width:0}
+.grp-entry small{color:var(--muted);font-size:.84rem}
+.grp-ic{width:34px;height:34px;flex:none;border-radius:10px;display:grid;place-items:center;background:var(--ok-soft);color:var(--ok)}
+.grp-ic svg{width:20px;height:20px}
+.grp-go{font-size:1.4rem;color:var(--muted);line-height:1}
+.gv-sub{margin:-4px 0 0;color:var(--muted);font-size:.9rem}
+.gv-lock{border:1.5px dashed var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.gv-lock p{margin:0;flex:1 1 200px;font-size:.92rem}
+.gmlist,.gstreaks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:46vh;overflow-y:auto}
+.gm{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:8px 10px}
+.gm.you{border-color:var(--pencil);box-shadow:inset 3px 0 0 var(--pencil)}
+.gm-rank{width:22px;flex:none;text-align:center;font:800 1rem var(--f-num);color:var(--pencil)}
+.gm-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.gm-name{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gm-name small{font-weight:500;color:var(--muted)}
+.gm-own{font-size:.75rem}
+.gm-res{color:var(--muted);font:600 .82rem var(--f-num);display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.gm-sq{display:inline-flex;gap:2px;flex-wrap:wrap}
+.sq{display:inline-block;width:9px;height:9px;border-radius:2px}
+.sq-o{background:var(--ok)}.sq-r{background:var(--warn)}.sq-x{background:var(--bad)}
+.gm-streak{flex:none;display:flex;flex-direction:column;align-items:center;line-height:1.05;min-width:36px}
+.gm-streak b{font:800 1.05rem var(--f-num);color:var(--ink)}
+.gm-streak small{font-size:.7rem;color:var(--muted)}
+.gm-rm{flex:none;border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:8px;padding:5px 8px;cursor:pointer;font:600 .75rem var(--f-body)}
+.gm-rm.arm,.gv-leave.arm{background:var(--bad);border-color:var(--bad);color:#fff}
+.gv-h{margin:4px 0 -4px;font-size:1rem}
+.gstreaks li{display:flex;justify-content:space-between;gap:10px;font-size:.9rem;padding:4px 2px;border-bottom:1px solid var(--line)}
+.gstreaks li small{color:var(--muted)}
+.gstreaks b{font-family:var(--f-num)}
+.gv-code{display:flex;flex-wrap:wrap;align-items:center;gap:10px;border-top:1px solid var(--line);padding-top:12px}
+.gv-code > span{color:var(--muted);font-size:.85rem}
+.gv-code .code{font:800 1.15rem var(--f-num);letter-spacing:.12em}
+.gv-code .btn{margin-left:auto}
+.gform{display:flex;flex-direction:column;gap:10px;border:1.5px solid var(--line);border-radius:12px;padding:12px;background:var(--bg)}
+</style>
 </head>
 <body>
 <title>Equacross</title>
@@ -1436,6 +1474,8 @@ function renderModal() {
   const pz = isPz();
   if (S.modal === 'account') {
     html = accountHTML();
+  } else if (S.modal === 'groups') {
+    html = groupsHTML();
   } else if (S.modal === 'tutdone') {
     const eq = S.tutEq || ['9', '−', '7', '=', '2'];
     html = `<div class="tut-chip">${eqChipHTML(eq, `<span id="tutPts" data-to="${S.tutPts || 0}">${S.tutPts || 0}</span>`)}</div>
@@ -1495,6 +1535,7 @@ function renderModal() {
     html = `<h2>My games</h2>
       ${acctLineHTML()}
       ${statsHTML()}
+      <button type="button" class="grp-entry" id="mGroups"><span class="grp-ic">${PEOPLE_SVG}</span><span><b>Groups</b><small>Compare the daily puzzle with friends</small></span><span class="grp-go">›</span></button>
       <p>Every game saves on this device. Tap one to open it.</p>
       <div class="glist">${ix.list.map(e => `<div class="grow ${e.id === S.id ? 'cur' : ''}">
         <button class="gopen" data-open="${e.id}"><span class="gt">${esc(e.title)}${e.id === S.id ? ' · open now' : ''}</span>
@@ -1516,6 +1557,7 @@ function renderModal() {
     html = `<h2>Solved!</h2>
       <pre class="share" id="shareTxt">${esc(shareText())}</pre>
       ${P.kind === 'daily' ? (ds => `<p class="streak"><b>${ds.cur}</b>-day streak${ds.best > ds.cur ? ` · best ${ds.best}` : ''}</p>`)(dailyStreak()) + `<p>Next daily puzzle in ${untilMidnight()}.</p>` : ''}
+      ${P.kind === 'daily' ? `<button type="button" class="grp-entry" id="mGroupsDaily"><span class="grp-ic">${PEOPLE_SVG}</span><span><b>See how your group did</b><small>${signedIn() ? 'Times, checks and streaks' : 'Start or join a group with friends'}</small></span><span class="grp-go">›</span></button>` : ''}
       <div class="row-end"><button class="btn" id="mLook">See the board</button><button class="btn" id="mCopy">${inApp() ? 'Share result' : 'Copy result'}</button><button class="btn primary" id="mAgain">New game</button></div>`;
   } else if (S.over && S.modal !== 'closed') {
     const ranked = S.players.slice().sort((a, b) => b.score - a.score);
@@ -1535,6 +1577,9 @@ function renderModal() {
   m.dataset.sig = html; m.innerHTML = html;
   const on = (id, f) => { const b = $(id); if (b) b.addEventListener('click', f); };
   if (S.modal === 'account') bindAccount(m);
+  if (S.modal === 'groups') bindGroups(m);
+  on('mGroups', () => openGroups());
+  on('mGroupsDaily', () => openGroups(null, true));
   on('mTutGo', () => { S.modal = null; save(); render(); maybeAI(); });
   const tp = $('tutPts');
   if (tp && !matchMedia('(prefers-reduced-motion: reduce)').matches) { // count the score up
@@ -2236,8 +2281,9 @@ if (sbAuth) {
       acct.provider = (session.user.app_metadata && session.user.app_metadata.provider) || acct.provider;
       if (/[?&]code=/.test(location.search)) try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {}
       if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-        if (event === 'SIGNED_IN' && was !== acct.uid && S && S.modal === 'account') { acct.stage = 'pick'; acct.msg = ''; }
+        if (event === 'SIGNED_IN' && was !== acct.uid && S && S.modal === 'account') { acct.stage = 'pick'; acct.msg = ''; if (acct.after === 'groups' || grp.joinCode) { acct.after = null; setTimeout(() => openGroups(), 0); } }
         setTimeout(() => accountSync(true), 0);
+        if (S && S.modal === 'groups' && grp.list == null && !grp.busy) setTimeout(() => openGroups(grp.view && grp.view.id), 0);
       }
     } else if (event === 'SIGNED_OUT') { acct.uid = null; acct.devices = null; }
     saveAcct(); if (S) render();
@@ -2250,6 +2296,7 @@ async function loadProviders() {
   try { const r = await fetch(`${SB_URL}/auth/v1/settings`, { headers: { apikey: SB_KEY } }); const j = await r.json(); providers = j.external || {}; } catch (e) { providers = {}; }
   if (S && S.modal === 'account') render();
 }
+const PEOPLE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><circle cx="17" cy="9" r="2.8"/><path d="M16.5 14.6c2.7.2 4.5 1.9 5 5"/></svg>';
 const APPLE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.37 12.6c-.02-2.4 1.96-3.56 2.05-3.62-1.12-1.63-2.86-1.86-3.48-1.88-1.48-.15-2.89.87-3.64.87-.75 0-1.91-.85-3.14-.83-1.62.02-3.11.94-3.94 2.39-1.68 2.92-.43 7.24 1.21 9.6.8 1.16 1.75 2.46 3 2.41 1.2-.05 1.66-.78 3.11-.78 1.46 0 1.86.78 3.13.75 1.3-.02 2.12-1.18 2.91-2.34.92-1.34 1.3-2.65 1.32-2.72-.03-.01-2.53-.97-2.55-3.85zM13.98 5.55c.66-.8 1.11-1.92.99-3.03-.95.04-2.11.64-2.8 1.44-.61.71-1.15 1.85-1 2.94 1.06.08 2.15-.54 2.81-1.35z"/></svg>';
 const GOOGLE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.46a5.52 5.52 0 0 1-2.4 3.62v3h3.88c2.27-2.09 3.56-5.17 3.56-8.81z"/><path fill="#34A853" d="M12 24c3.24 0 5.96-1.07 7.94-2.92l-3.88-3c-1.07.72-2.45 1.15-4.06 1.15-3.12 0-5.77-2.11-6.71-4.95H1.28v3.1A12 12 0 0 0 12 24z"/><path fill="#FBBC05" d="M5.29 14.28a7.2 7.2 0 0 1 0-4.56v-3.1H1.28a12 12 0 0 0 0 10.76z"/><path fill="#EA4335" d="M12 4.77c1.76 0 3.34.61 4.59 1.8l3.44-3.44A11.97 11.97 0 0 0 12 0 12 12 0 0 0 1.28 6.62l4.01 3.1C6.23 6.88 8.88 4.77 12 4.77z"/></svg>';
 function acctLineHTML() {
@@ -2360,6 +2407,132 @@ function renderAcctButton() {
   if (b.dataset.h !== html) { b.innerHTML = html; b.dataset.h = html; }
   b.classList.toggle('in', si);
   b.setAttribute('aria-label', si ? 'Account, signed in' : 'Sign in');
+}
+/* ---------- daily puzzle groups ---------- */
+// Friends share a code, then see each other's daily puzzle results and streaks. Needs an account.
+const GJKEY = 'equatile.groupjoin';
+const grp = { list: null, view: null, busy: false, msg: '', err: false, form: '', arm: null };
+grp.joinCode = (() => { try { return localStorage.getItem(GJKEY) || ''; } catch (e) { return ''; } })();
+function setGroupJoin(c) { grp.joinCode = c || ''; try { c ? localStorage.setItem(GJKEY, c) : localStorage.removeItem(GJKEY); } catch (e) {} }
+const groupLink = g => `https://equacross.com/play/#group-${g.code}`;
+function openGroups(groupId, fromDaily) {
+  grp.msg = ''; grp.err = false; grp.arm = null; grp.manage = false;
+  grp.form = grp.joinCode ? 'join' : '';
+  if (groupId) grp.view = { id: groupId, loading: true }; else grp.view = null;
+  S.modal = 'groups'; render();
+  if (!signedIn()) return;
+  if (groupId) return loadGroup(groupId);
+  loadGroups().then(() => { // from a daily result with just one group: go straight to it
+    if (fromDaily && grp.list && grp.list.length === 1 && S.modal === 'groups' && !grp.view && !grp.form) { grp.view = { id: grp.list[0].id, loading: true }; render(); loadGroup(grp.list[0].id); }
+  });
+}
+async function groupCall(body, after) {
+  grp.busy = true; grp.msg = ''; grp.err = false; render();
+  try { const out = await api(body); grp.busy = false; await after(out); }
+  catch (e) { grp.busy = false; grp.msg = e.message; grp.err = true; }
+  if (S && S.modal === 'groups') render();
+}
+async function loadGroups() {
+  await groupCall({ action: 'groupList', day: todayId() }, out => { grp.list = out.groups; });
+}
+async function loadGroup(id) {
+  await accountSync(false); // make sure today's result is on the server first
+  await groupCall({ action: 'groupView', groupId: id, day: todayId() }, out => { grp.view = out; });
+}
+function rankMembers(v) {
+  const done = v.members.filter(m => m.today.solved), not = v.members.filter(m => !m.today.solved);
+  if (v.youSolved) done.sort((a, b) => (a.today.reveals - b.today.reveals) || (a.today.checks - b.today.checks) || (a.today.elapsed - b.today.elapsed));
+  return { done, not };
+}
+function groupsHTML() {
+  const close = `<button class="btn" id="mCancel">Close</button>`;
+  const msg = grp.msg ? `<p class="msg ${grp.err ? 'bad' : 'ok'}" role="status">${esc(grp.msg)}</p>` : '';
+  if (!signedIn()) {
+    return `<h2>Groups</h2>
+      <p>Start a group with friends or family and compare the daily puzzle: who solved it, with the fewest checks and the fastest time, and everyone’s streak.</p>
+      ${grp.joinCode ? `<p>You’ve been invited to a group (code <b>${esc(grp.joinCode)}</b>). Sign in to join it.</p>` : ''}
+      <p class="fine">Groups need an account so your results follow you to every device.</p>
+      <div class="row-end">${close}<button class="btn primary" id="gSignIn">Sign in</button></div>`;
+  }
+  const v = grp.view;
+  if (v && v.loading) return `<h2>Groups</h2><p>Loading…</p>${msg}<div class="row-end"><button class="btn" id="gBack">Back</button></div>`;
+  if (v && v.group) {
+    const { done, not } = rankMembers(v), g = v.group;
+    const who = m => `<span class="gm-name">${esc(m.name)}${m.you ? ' <small>(you)</small>' : ''}${m.owner ? ' <small class="gm-own">runs the group</small>' : ''}</span>`;
+    const sq = h => h.map(x => `<i class="sq sq-${x === 'o' ? 'o' : x === 'r' ? 'r' : 'x'}"></i>`).join('');
+    const rm = m => g.owner && grp.manage && !m.you ? `<button class="gm-rm ${grp.arm === 'rm:' + m.userId ? 'arm' : ''}" data-rm="${m.userId}" aria-label="Remove ${esc(m.name)}">${grp.arm === 'rm:' + m.userId ? 'Remove?' : 'Remove'}</button>` : '';
+    const row = (m, i) => `<li class="gm ${m.you ? 'you' : ''}">
+        <span class="gm-rank">${m.today.solved ? (v.youSolved ? i + 1 : '✓') : ''}</span>
+        <span class="gm-main">${who(m)}
+          <span class="gm-res">${!m.today.solved ? 'Not solved yet' : v.youSolved
+            ? `<span class="gm-sq">${sq(m.today.history)}</span>${fmtTime(m.today.elapsed)} · ${m.today.checks} check${m.today.checks === 1 ? '' : 's'}${m.today.reveals ? ` · ${m.today.reveals} reveal${m.today.reveals === 1 ? '' : 's'}` : ''}`
+            : 'Solved'}</span></span>
+        <span class="gm-streak" title="Current streak, best ${m.best}"><b>${m.streak}</b><small>day${m.streak === 1 ? '' : 's'}</small></span>
+        ${rm(m)}</li>`;
+    const streaks = v.members.slice().sort((a, b) => (b.streak - a.streak) || (b.best - a.best)).filter(m => m.best > 0);
+    return `<h2>${esc(g.name)}</h2>
+      <p class="gv-sub">Daily #${v.day} · ${done.length} of ${v.members.length} solved</p>
+      ${v.youSolved ? '' : `<div class="gv-lock"><p>Solve today’s puzzle to see everyone’s times, checks and squares.</p><button class="btn primary" id="gPlay">Play Daily #${v.day}</button></div>`}
+      <ol class="gmlist">${done.map(row).join('')}${not.map((m, i) => row(m, done.length + i)).join('')}</ol>
+      ${v.youSolved ? '<p class="fine">Ranked by fewest reveals, then fewest checks, then fastest time.</p>' : ''}
+      ${streaks.length ? `<h3 class="gv-h">Streaks</h3><ol class="gstreaks">${streaks.map(m => `<li><span>${esc(m.name)}${m.you ? ' <small>(you)</small>' : ''}</span><span><b>${m.streak}</b> now · best ${m.best}</span></li>`).join('')}</ol>` : ''}
+      <div class="gv-code"><span>Invite code</span><b class="code">${esc(g.code)}</b><button class="btn" id="gShare">${inApp() ? 'Share invite' : 'Copy invite link'}</button></div>
+      ${msg}
+      <div class="row-end">${g.owner && v.members.length > 1 ? `<button class="btn" id="gManage">${grp.manage ? 'Done' : 'Remove people'}</button>` : ''}<button class="btn gv-leave ${grp.arm === 'leave' ? 'arm' : ''}" id="gLeave">${grp.arm === 'leave' ? 'Leave this group?' : 'Leave group'}</button><button class="btn" id="gBack">All groups</button></div>`;
+  }
+  const L = grp.list;
+  const form = grp.form === 'create'
+    ? `<div class="gform"><label class="field">Group name<input id="gName" maxlength="24" placeholder="e.g. The Smiths"></label><div class="row-end"><button class="btn" id="gFormX">Cancel</button><button class="btn primary" id="gCreate" ${grp.busy ? 'disabled' : ''}>Create group</button></div></div>`
+    : grp.form === 'join'
+    ? `<div class="gform"><label class="field">Group code<input id="gCode" maxlength="6" value="${esc(grp.joinCode)}" placeholder="6 letters and numbers" autocapitalize="characters" autocomplete="off"></label><div class="row-end"><button class="btn" id="gFormX">Cancel</button><button class="btn primary" id="gJoin" ${grp.busy ? 'disabled' : ''}>Join group</button></div></div>`
+    : '';
+  return `<h2>Groups</h2>
+    <p class="gv-sub">Compare the daily puzzle with friends. Results stay hidden until you’ve solved it yourself.</p>
+    ${L == null ? '<p>Loading…</p>' : L.length ? `<div class="glist">${L.map(g => `<div class="grow"><button class="gopen" data-group="${g.id}"><span class="gt">${esc(g.name)}</span><span class="gs">${g.solved} of ${g.members} solved Daily #${todayId()}</span><span class="gmeta"><span>${g.members} member${g.members === 1 ? '' : 's'}</span><span>${g.owner ? 'You run it' : ''}</span></span></button></div>`).join('')}</div>`
+      : '<p>You’re not in any groups yet. Start one and send the code to friends, or join one with a code someone sent you.</p>'}
+    ${form}${msg}
+    <div class="row-end">${close}${grp.form ? '' : '<button class="btn" id="gShowJoin">Join with a code</button><button class="btn primary" id="gShowCreate">Start a group</button>'}</div>`;
+}
+function bindGroups(m) {
+  const on = (id, f) => { const b = $(id); if (b) b.addEventListener('click', f); };
+  const redraw = () => { m.dataset.sig = ''; render(); };
+  on('gSignIn', () => { acct.after = 'groups'; acct.stage = 'pick'; acct.msg = ''; S.modal = 'account'; render(); });
+  on('gShowCreate', () => { grp.form = 'create'; grp.msg = ''; redraw(); const i = $('gName'); if (i) i.focus(); });
+  on('gShowJoin', () => { grp.form = 'join'; grp.msg = ''; redraw(); const i = $('gCode'); if (i) i.focus(); });
+  on('gFormX', () => { grp.form = ''; grp.msg = ''; setGroupJoin(''); redraw(); });
+  on('gCreate', () => {
+    const name = $('gName').value.trim();
+    if (!name) { grp.msg = 'Give the group a name.'; grp.err = true; return redraw(); }
+    groupCall({ action: 'groupCreate', name }, async out => { grp.form = ''; grp.list = null; await loadGroups(); grp.view = { id: out.group.id, loading: true }; await loadGroup(out.group.id); grp.msg = 'Group ready. Send the invite so others can join.'; grp.err = false; });
+  });
+  on('gJoin', () => {
+    const code = $('gCode').value.trim().toUpperCase();
+    if (!/^[A-Z0-9]{6}$/.test(code)) { grp.msg = 'Enter the 6-character group code.'; grp.err = true; return redraw(); }
+    groupCall({ action: 'groupJoin', code }, async out => { setGroupJoin(''); grp.form = ''; grp.view = { id: out.group.id, loading: true }; await loadGroup(out.group.id); });
+  });
+  m.querySelectorAll('[data-group]').forEach(b => b.addEventListener('click', () => { grp.manage = false; grp.view = { id: b.dataset.group, loading: true }; grp.arm = null; redraw(); loadGroup(b.dataset.group); }));
+  on('gBack', () => { grp.view = null; grp.arm = null; grp.msg = ''; grp.list = grp.list || null; redraw(); loadGroups(); });
+  on('gPlay', () => { S.modal = null; newPuzzle('daily', 'medium'); });
+  on('gShare', e => {
+    const g = grp.view.group, link = groupLink(g), btn = e.currentTarget;
+    const txt = `Join my Equacross group "${g.name}" and compare the daily puzzle. Code ${g.code}: ${link}`;
+    if (inApp()) return nativeSend({ type: 'share', text: txt });
+    try { navigator.clipboard.writeText(link).then(() => { btn.textContent = 'Copied'; }, () => { btn.textContent = link; }); } catch (err) { btn.textContent = link; }
+  });
+  on('gManage', () => { grp.manage = !grp.manage; grp.arm = null; redraw(); });
+  on('gLeave', () => {
+    if (grp.arm !== 'leave') { grp.arm = 'leave'; return redraw(); }
+    const id = grp.view.group.id; grp.arm = null;
+    groupCall({ action: 'groupLeave', groupId: id }, async () => { grp.view = null; grp.list = null; await loadGroups(); grp.msg = 'You left the group.'; grp.err = false; });
+  });
+  m.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => {
+    const uid = b.dataset.rm;
+    if (grp.arm !== 'rm:' + uid) { grp.arm = 'rm:' + uid; return redraw(); }
+    grp.arm = null;
+    groupCall({ action: 'groupRemove', groupId: grp.view.group.id, userId: uid }, async () => { await loadGroup(grp.view.group.id); });
+  }));
+  const ci = $('gCode'); if (ci) ci.addEventListener('keydown', e => { if (e.key === 'Enter') $('gJoin').click(); });
+  const ni = $('gName'); if (ni) ni.addEventListener('keydown', e => { if (e.key === 'Enter') $('gCreate').click(); });
 }
 $('bAcct').addEventListener('click', () => { if (ui.thinking) return; acct.stage = signedIn() ? acct.stage : 'pick'; acct.msg = ''; acct.confirmDel = false; S.modal = 'account'; render(); });
 document.addEventListener('click', e => { if (e.target && e.target.id === 'mAcct') { acct.msg = ''; S.modal = 'account'; render(); } });
@@ -2500,7 +2673,16 @@ function importFromHash() {
 function start(data) {
   importFromHash();
   const jm = /^#join-([A-Za-z0-9]{6})$/.exec(location.hash || '');
+  const gm = /^#group-([A-Za-z0-9]{6})$/.exec(location.hash || '');
   S = (data && data.S) || load();
+  if (gm) {
+    setGroupJoin(gm[1].toUpperCase());
+    try { history.replaceState(null, '', location.pathname); } catch (e) {}
+    if (!S) newGame({ mode: 'ai', level: 'medium' });
+    resetUI(); restorePending(); save();
+    openGroups(); refreshOnlineList();
+    return;
+  }
   if (jm && !(S && isOn() && S.online.code === jm[1].toUpperCase())) {
     ui.joinCode = jm[1].toUpperCase();
     if (!S) newGame({ mode: 'ai', level: 'medium' });

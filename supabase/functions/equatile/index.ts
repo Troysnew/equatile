@@ -58,6 +58,25 @@ async function authUser(req) {
     return u && u.id ? u : null;
   } catch (_) { return null; }
 }
+const GROUP_MAX = 50, GROUP_LIMIT_PER_USER = 20;
+const dayOf = d => { const n = Number(d); if (!Number.isInteger(n) || n < 1 || n > 1e6) throw new Fail('Bad day.'); return n; };
+// Current streak ending on `day` (or the day before, if `day` isn't solved yet) and the best ever.
+function streaks(daily, day) {
+  const ok = id => daily[String(id)] && daily[String(id)].solved;
+  let d = ok(day) ? day : day - 1, cur = 0; while (ok(d)) { cur++; d--; }
+  const ids = Object.keys(daily).map(Number).filter(ok).sort((a, b) => a - b);
+  let best = 0, run = 0; ids.forEach((id, i) => { run = i && ids[i - 1] === id - 1 ? run + 1 : 1; best = Math.max(best, run); });
+  return { cur, best };
+}
+// Removes a member. The longest-standing member takes over a group whose owner leaves; the last one out closes it.
+async function leaveGroup(tx, groupId, userId) {
+  const [g] = await tx`select * from equatile.groups where id = ${groupId} for update`;
+  if (!g) throw new Fail('Group not found.', 404);
+  await tx`delete from equatile.group_members where group_id = ${g.id} and user_id = ${userId}`;
+  const [next] = await tx`select user_id from equatile.group_members where group_id = ${g.id} order by joined_at limit 1`;
+  if (!next) await tx`delete from equatile.groups where id = ${g.id}`;
+  else if (g.owner_id === userId) await tx`update equatile.groups set owner_id = ${next.user_id} where id = ${g.id}`;
+}
 const needUser = b => { if (!b.__user) throw new Fail('Sign in first.', 401); return b.__user; };
 const isUuid = x => /^[0-9a-f-]{36}$/.test(String(x));
 
@@ -185,9 +204,93 @@ const actions = {
     const u = needUser(b);
     await sql`update equatile.players set user_id = null where user_id = ${u.id}`;
     await sql`delete from equatile.accounts where user_id = ${u.id}`;
+    for (const { group_id } of await sql`select group_id from equatile.group_members where user_id = ${u.id}`) await sql.begin(tx => leaveGroup(tx, group_id, u.id));
     const r = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${u.id}`, { method: 'DELETE', headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } });
     if (!r.ok) throw new Fail('Couldn’t delete the sign-in. Try again, or email support@equacross.com.', 502);
     return { deleted: true };
+  },
+  // ---------- daily puzzle groups ----------
+  async groupCreate(b) {
+    const u = needUser(b), name = cleanName(b.name, '');
+    if (!name) throw new Fail('Give the group a name.');
+    const [{ n }] = await sql`select count(*)::int as n from equatile.group_members where user_id = ${u.id}`;
+    if (n >= GROUP_LIMIT_PER_USER) throw new Fail(`You can be in up to ${GROUP_LIMIT_PER_USER} groups.`, 409);
+    for (let i = 0; i < 5; i++) {
+      try {
+        return await sql.begin(async tx => {
+          const [g] = await tx`insert into equatile.groups (code, name, owner_id) values (${makeCode()}, ${name}, ${u.id}) returning *`;
+          await tx`insert into equatile.group_members (group_id, user_id) values (${g.id}, ${u.id})`;
+          return { group: { id: g.id, code: g.code, name: g.name, owner: true, members: 1 } };
+        });
+      } catch (e) { if (!String(e.message).includes('duplicate')) throw e; }
+    }
+    throw new Fail('Couldn’t make a group code. Try again.', 500);
+  },
+  async groupJoin(b) {
+    const u = needUser(b), code = String(b.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    return await sql.begin(async tx => {
+      const [g] = await tx`select * from equatile.groups where code = ${code} for update`;
+      if (!g) throw new Fail('No group with that code.', 404);
+      const [{ n }] = await tx`select count(*)::int as n from equatile.group_members where group_id = ${g.id}`;
+      const [mine] = await tx`select 1 from equatile.group_members where group_id = ${g.id} and user_id = ${u.id}`;
+      if (!mine) {
+        if (n >= GROUP_MAX) throw new Fail(`That group is full (${GROUP_MAX} people).`, 409);
+        const [{ m }] = await tx`select count(*)::int as m from equatile.group_members where user_id = ${u.id}`;
+        if (m >= GROUP_LIMIT_PER_USER) throw new Fail(`You can be in up to ${GROUP_LIMIT_PER_USER} groups.`, 409);
+        await tx`insert into equatile.group_members (group_id, user_id) values (${g.id}, ${u.id})`;
+      }
+      return { group: { id: g.id, code: g.code, name: g.name, owner: g.owner_id === u.id, members: mine ? n : n + 1 } };
+    });
+  },
+  async groupLeave(b) {
+    const u = needUser(b);
+    if (!isUuid(b.groupId)) throw new Fail('Group not found.', 404);
+    await sql.begin(tx => leaveGroup(tx, b.groupId, u.id));
+    return { left: true };
+  },
+  async groupRemove(b) {
+    const u = needUser(b);
+    if (!isUuid(b.groupId) || !isUuid(b.userId)) throw new Fail('Not found.', 404);
+    const [g] = await sql`select * from equatile.groups where id = ${b.groupId}`;
+    if (!g) throw new Fail('Group not found.', 404);
+    if (g.owner_id !== u.id) throw new Fail('Only the person who runs the group can remove people.', 403);
+    if (b.userId === u.id) throw new Fail('Use Leave group to leave it yourself.');
+    await sql`delete from equatile.group_members where group_id = ${g.id} and user_id = ${b.userId}`;
+    return { removed: true };
+  },
+  // Your groups, with how many members have solved the given day's puzzle.
+  async groupList(b) {
+    const u = needUser(b), day = dayOf(b.day);
+    const rows = await sql`select g.id, g.code, g.name, g.owner_id,
+        (select count(*)::int from equatile.group_members m where m.group_id = g.id) as members,
+        (select count(*)::int from equatile.group_members m join equatile.accounts a on a.user_id = m.user_id
+           where m.group_id = g.id and (a.daily -> ${String(day)} ->> 'solved') = 'true') as solved
+      from equatile.groups g join equatile.group_members me on me.group_id = g.id and me.user_id = ${u.id}
+      order by me.joined_at`;
+    return { groups: rows.map(r => ({ id: r.id, code: r.code, name: r.name, owner: r.owner_id === u.id, members: r.members, solved: r.solved })) };
+  },
+  // One group's members with their result for the day and their streaks.
+  // Times and squares stay hidden until the person asking has solved that day's puzzle.
+  async groupView(b) {
+    const u = needUser(b), day = dayOf(b.day);
+    if (!isUuid(b.groupId)) throw new Fail('Group not found.', 404);
+    const [g] = await sql`select * from equatile.groups where id = ${b.groupId}`;
+    if (!g) throw new Fail('Group not found.', 404);
+    const ms = await sql`select m.user_id, m.joined_at, coalesce(a.name, '') as name, coalesce(a.daily, '{}'::jsonb) as daily
+      from equatile.group_members m left join equatile.accounts a on a.user_id = m.user_id where m.group_id = ${g.id} order by m.joined_at`;
+    const me = ms.find(m => m.user_id === u.id);
+    if (!me) throw new Fail('You’re not in that group.', 403);
+    const iSolved = !!(me.daily[String(day)] && me.daily[String(day)].solved);
+    let anon = 0;
+    const members = ms.map(m => {
+      const r = m.daily[String(day)], st = streaks(m.daily, day);
+      return {
+        userId: m.user_id, name: m.name || `Player ${++anon}`, you: m.user_id === u.id, owner: m.user_id === g.owner_id,
+        today: r && r.solved ? (iSolved ? { solved: true, checks: r.checks | 0, reveals: r.reveals | 0, elapsed: r.elapsed | 0, history: Array.isArray(r.history) ? r.history.slice(0, 60) : [] } : { solved: true }) : { solved: false },
+        streak: st.cur, best: st.best,
+      };
+    });
+    return { group: { id: g.id, code: g.code, name: g.name, owner: g.owner_id === u.id }, day, youSolved: iSolved, members };
   },
   // ---------- games ----------
   async state(b, after) {
