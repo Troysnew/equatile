@@ -2274,7 +2274,7 @@ function accountHTML() {
   loadProviders();
   const pv = providers || {};
   if (acct.stage === 'code') return `<h2>Check your email</h2>
-      <p>We sent a sign-in email to <b>${esc(acct.email || '')}</b>. ${inApp() ? 'Enter the 6-digit code from it here.' : 'Tap the link in it, or enter the 6-digit code here.'}</p>
+      <p>We sent a sign-in email to <b>${esc(acct.email || '')}</b>. Enter the 6-digit code from it here.</p>
       <label class="field">Code<input id="aCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" value="${esc(acct.code || '')}"></label>
       ${msg}
       <div class="row-end"><button class="btn" id="aBack">Back</button><button class="btn primary" id="aVerify" ${acct.busy ? 'disabled' : ''}>Sign in</button></div>`;
