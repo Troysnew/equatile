@@ -183,6 +183,8 @@ h1 .eq{color:var(--pencil)}
 .rules[open] > summary .tog::before{content:"−"}
 .rules > summary:focus-visible{outline:2px solid var(--pencil);outline-offset:-2px}
 .full-rules{margin-top:12px!important}
+.tut-cta{display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px;margin:0 0 18px}
+.tut-cta span{color:var(--muted);font-size:.86rem}
 .full-rules a{color:var(--pencil);font-weight:600}
 .rules ul{margin:6px 0 0;padding-left:1.1em;display:flex;flex-direction:column;gap:5px}
 .rules .k{font-family:var(--f-num);font-weight:700}
@@ -629,6 +631,7 @@ body{font-size:15px;-webkit-font-smoothing:antialiased}
       </section>
       <details class="panel rules" id="howto" open>
         <summary><h2>How it works</h2><span class="tog" aria-hidden="true"></span></summary>
+        <p class="tut-cta"><button type="button" class="btn" id="bTut">Play the tutorial</button><span>A guided start to a game, about a minute</span></p>
         <div class="demo">
           <div class="drow"><div class="mini"><span>9</span><span class="gap"></span><span>2</span></div><span>Drop a 7 in the gap</span></div>
           <div class="drow"><div class="mini"><span>9</span><span class="new">7</span><span>2</span></div><div class="eqline">9<span class="op">−</span>7<span class="op">=</span>2</div></div>
@@ -663,7 +666,7 @@ body{font-size:15px;-webkit-font-smoothing:antialiased}
           <span class="sw" style="background:var(--p2e)">2E</span><span>Doubles the whole equation</span>
           <span class="sw" style="background:var(--p3e)">3E</span><span>Triples the whole equation</span>
         </div>
-        <p class="full-rules"><button type="button" class="linkbtn" id="bTut">Play the guided first move</button> · <a href="../how-to-play/">Full rules, scoring and examples</a></p>
+        <p class="full-rules"><a href="../how-to-play/">Full rules, scoring and examples</a></p>
       </details>
     </aside>
   </main>
@@ -2776,6 +2779,11 @@ function start(data) {
   const jm = /^#join-([A-Za-z0-9]{6})$/.exec(location.hash || '');
   const gm = /^#group-([A-Za-z0-9]{6})$/.exec(location.hash || '');
   S = (data && data.S) || load();
+  if (location.hash === '#tutorial') { // linked from the How to play page
+    try { history.replaceState(null, '', location.pathname); } catch (e) {}
+    if (S) save();
+    return startTutorial();
+  }
   if (gm) {
     setGroupJoin(gm[1].toUpperCase());
     try { history.replaceState(null, '', location.pathname); } catch (e) {}
