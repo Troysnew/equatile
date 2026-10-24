@@ -13,6 +13,9 @@
 <meta name="description" content="Play Equacross: a Scrabble-style game with number tiles where every line is an equation.">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}
+#fKind{display:flex;flex-direction:column;gap:8px}
+/* co-op: a teammate's planned tiles */
+.tile.ghost{opacity:.45;background:var(--bg);box-shadow:inset 0 0 0 2px var(--pencil);color:var(--ink)}
 /* groups */
 .grp-entry{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);border-radius:12px;padding:10px 12px;cursor:pointer;font:500 .92rem var(--f-body)}
 .grp-entry:hover{border-color:var(--pencil)}
@@ -967,7 +970,7 @@ function statsHTML() {
   return `<div class="stats" aria-label="Your stats">
     ${cell('Daily streak', ds.cur, `best ${ds.best} · ${ds.solved} solved`)}
     ${cell('Vs computer', `${(['easy', 'medium', 'hard']).reduce((n, l) => n + ((g['ai-' + l] || {}).w || 0), 0)} wins`, `Easy ${wl('ai-easy')} · Med ${wl('ai-medium')} · Hard ${wl('ai-hard')}`)}
-    ${cell('Online', wl('online'), 'wins–losses')}
+    ${cell('Online', wl('online'), g.coop ? `wins–losses · team ${wl('coop')}` : 'wins–losses')}
     ${cell('Best move', st.best ? st.best.pts : '–', st.best ? st.best.eq.join(' ') : 'no plays yet')}
     ${cell('Longest line', st.longest ? st.longest.len + ' tiles' : '–', st.longest ? st.longest.eq.join(' ') : '')}
     ${cell('All-7 plays', st.bingos || 0, `${st.opPlays || 0} with × or ÷`)}
@@ -1025,6 +1028,7 @@ async function newPuzzle(kind, level) {
 }
 function resetUI() { ui.sel = null; ui.swap = false; ui.swapSet.clear(); ui.pending = []; ui.msg = ''; ui.err = false; ui.bad = null; ui.good = false; ui.circSel = []; ui.wb = null; ui.wbPlace = null; }
 const cur = () => S.players[S.turn];
+const isCoop = () => isOn() && S.online.kind === 'coop';
 const me = () => isOn() ? S.players[S.online.seat] : cur();
 // Online players can plan (select, place tiles, use the Workbench) while waiting; only Play, Swap and Pass need their turn.
 const canPlan = () => humanTurn() || (isOn() && !S.over && !ui.thinking);
@@ -1103,16 +1107,31 @@ function mergeServer(G, v) {
   G.bag = Array(v.bag).fill(0);
   G.players = [0, 1].map(i => {
     const p = v.players[i];
-    return { name: p && p.name ? p.name : (i === 0 ? 'Player 1' : 'Waiting…'), score: p ? p.score : 0, ai: false, rack: i === v.seat ? v.rack : Array(p ? p.tiles : 0).fill(null) };
+    const name = v.kind === 'coop' && i === 1 ? `Computer · ${LEVELS[v.level] ? LEVELS[v.level].label : 'Medium'}` : p && p.name ? p.name : (i === 0 ? 'Player 1' : 'Waiting…');
+    return { name, score: p ? p.score : 0, ai: false, rack: i === v.seat ? v.rack : Array(p ? p.tiles : 0).fill(null) };
   });
   G.over = v.status === 'over'; G.outIdx = v.outSeat;
   Object.assign(G.online, { status: v.status, version: v.version, seat: v.seat, code: v.code });
+  if (v.kind === 'coop') Object.assign(G.online, { kind: 'coop', level: v.level, slot: v.slot, team: v.team });
   if (G.pending) G.pending = G.pending.filter(t => G.board[t.k] == null && v.rack[t.ri] === t.d);
 }
-function applyServer(v) {
-  const prevTurn = S && isOn() ? S.turn : null;
+function applyServer(v, mine) {
+  const prevTurn = S && isOn() ? S.turn : null, prevVer = S && isOn() ? S.online.version : null;
   mergeServer(S, v);
-  if (S.over && v.players && v.players[0] && v.players[1]) recordResult(v.players[v.seat].score, v.players[1 - v.seat].score, 'online');
+  if (S.over && v.players && v.players[0] && v.players[1]) recordResult(v.players[v.seat].score, v.players[1 - v.seat].score, v.kind === 'coop' ? 'coop' : 'online');
+  if (v.kind === 'coop') {
+    ui.partner = null;
+    if (prevVer != null && prevVer >= 0 && prevVer !== v.version && !mine) {
+      // the teammate played (or joined): keep planned tiles that still fit
+      const before = ui.pending.length;
+      ui.pending = ui.pending.filter(t => S.board[t.k] == null && t.ri < v.rack.length && v.rack[t.ri] === t.d);
+      const t = v.log.find(e => e.who === 0), c = v.log.find(e => e.who === 1);
+      const said = t && t.by && v.log[0] && v.log[0].who === 1 && v.log[1] === t ? `${t.by} ${t.note ? t.note.toLowerCase() : `scored ${t.pts}`}. The computer ${c.note ? c.note.toLowerCase() : `scored ${c.pts}`}.` : '';
+      ui.msg = [said, before && ui.pending.length < before ? 'Some of your planned tiles went back to the rack.' : ''].filter(Boolean).join(' ');
+      ui.err = false;
+    }
+    return;
+  }
   if (prevTurn !== null && prevTurn !== v.turn) {
     // Keep planned tiles that still sit on empty squares; drop any the opponent covered.
     const before = ui.pending.length;
@@ -1120,10 +1139,10 @@ function applyServer(v) {
     if (v.turn === v.seat && v.status === 'active') ui.msg = before && ui.pending.length < before ? 'Your turn. Some of your planned tiles were covered, so they went back to your rack.' : ui.pending.length ? 'Your turn. Your planned tiles are still on the board.' : '';
   }
 }
-async function startOnline(kind, name, code) {
-  ui.thinking = true; ui.msg = kind === 'create' ? 'Starting an online game…' : 'Joining the game…'; ui.err = false; render();
+async function startOnline(kind, name, code, opt = {}) {
+  ui.thinking = true; ui.msg = kind === 'create' ? (opt.coop ? 'Starting a team game…' : 'Starting an online game…') : 'Joining the game…'; ui.err = false; render();
   try {
-    const v = await api(kind === 'create' ? { action: 'create', name } : { action: 'join', name, code });
+    const v = await api(kind === 'create' ? { action: 'create', name, ...(opt.coop ? { coop: true, level: opt.level } : {}) } : { action: 'join', name, code });
     if (S) save();
     S = { board: [], players: [], bag: [], turn: 0, scoreless: 0, log: [], over: false, mode: 'online', last: [], handoff: false, modal: kind === 'create' ? 'invite' : null,
           online: { gameId: v.gameId, token: v.token, seat: v.seat, code: v.code, status: v.status, version: v.version } };
@@ -1145,21 +1164,36 @@ async function onlineAction(body, okMsg) {
   ui.thinking = true; ui.msg = 'Sending…'; ui.err = false; render();
   try {
     const v = await api({ ...body, gameId: S.online.gameId, token: S.online.token });
-    resetUI(); applyServer(v); save();
+    resetUI(); applyServer(v, true); save();
     ui.msg = okMsg ? okMsg(v) : '';
+    if (v.kind === 'coop' && v.log[0] && v.log[0].who === 1) { const c = v.log[0]; ui.msg += ` The computer ${c.note ? c.note.toLowerCase() : `scored ${c.pts}`}.`; if (c.eqs) flashGlow(S.last); }
   } catch (e) { ui.msg = e.message; ui.err = true; }
   ui.thinking = false; render();
 }
-let channel = null, sbClient = null;
+let channel = null, sbClient = null, lastDraft = '', draftTimer = null;
+function shareDraft() {
+  if (!isCoop() || !channel) return;
+  const tiles = ui.pending.map(t => ({ k: t.k, d: t.d })), sig = S.online.version + ':' + JSON.stringify(tiles);
+  if (sig === lastDraft) return;
+  lastDraft = sig; clearTimeout(draftTimer);
+  const me0 = (S.online.team || []).find(t => t.slot === S.online.slot);
+  draftTimer = setTimeout(() => { try { channel.send({ type: 'broadcast', event: 'draft', payload: { slot: S.online.slot, v: S.online.version, name: me0 ? me0.name : '', tiles } }); } catch (e) {} }, 250);
+}
 function listen() {
   try {
     if (channel) { channel.unsubscribe(); channel = null; }
     if (!isOn() || !window.supabase) return;
     sbClient = sbClient || sbAuth || window.supabase.createClient(SB_URL, SB_KEY);
-    channel = sbClient.channel(`equatile-${S.online.gameId}`).on('broadcast', { event: 'update' }, () => refresh()).subscribe();
+    channel = sbClient.channel(`equatile-${S.online.gameId}`).on('broadcast', { event: 'update' }, () => refresh())
+      .on('broadcast', { event: 'draft' }, ({ payload: d }) => {
+        // a teammate's planned tiles, shown faintly on the board
+        if (!isCoop() || !d || d.slot === S.online.slot || d.v !== S.online.version) return;
+        ui.partner = d.tiles && d.tiles.length ? { name: d.name, tiles: d.tiles.filter(t => S.board[t.k] == null) } : null; render();
+      }).subscribe();
+    lastDraft = '';
   } catch (e) { channel = null; }
 }
-setInterval(() => { if (isOn() && !document.hidden && (S.online.status === 'waiting' || (S.online.status === 'active' && S.turn !== S.online.seat))) refresh(); }, 4000);
+setInterval(() => { if (isOn() && !document.hidden && (S.online.status === 'waiting' || (S.online.status === 'active' && (S.turn !== S.online.seat || isCoop())))) refresh(); }, 4000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
 const inviteLink = () => `${location.origin}${location.pathname}#join-${S.online.code}`;
 
@@ -1224,6 +1258,7 @@ function readGame(id) { try { const g = JSON.parse(localStorage.getItem(gkey(id)
 function writeGame(G) { try { localStorage.setItem(gkey(G.id), JSON.stringify(G)); } catch (e) {} }
 function resultText(G) {
   const [a, b] = G.players;
+  if (G.mode === 'online' && G.online.kind === 'coop') return a.score > b.score ? `Your team won ${a.score}–${b.score}` : a.score < b.score ? `The computer won ${b.score}–${a.score}` : `Tie ${a.score}–${b.score}`;
   if (G.mode === 'online') { const mine = a && G.players[G.online.seat], theirs = G.players[1 - G.online.seat]; return mine.score > theirs.score ? `You won ${mine.score}–${theirs.score}` : mine.score < theirs.score ? `${theirs.name} won ${theirs.score}–${mine.score}` : `Tie ${mine.score}–${theirs.score}`; }
   return a.score === b.score ? `Tie ${a.score}–${b.score}` : (a.score > b.score ? `${a.name === 'You' ? 'You' : a.name} won` : `${b.name} won`) + ` ${Math.max(a.score, b.score)}–${Math.min(a.score, b.score)}`;
 }
@@ -1232,6 +1267,12 @@ function summarize(G) {
   if (G.mode === 'puzzle') {
     const z = G.puzzle, left = z.holes.filter(k => G.board[k] == null).length;
     return { title: z.kind === 'daily' ? `Daily puzzle #${z.id}` : `Random puzzle · ${LEVELS[z.level].label}`, status: z.solved ? `Solved in ${fmtTime(z.elapsed)}` : `${left} square${left === 1 ? '' : 's'} left · ${fmtTime(z.elapsed)}`, score: '', you: false, done: z.solved, daily: z.kind === 'daily' ? z.id : null };
+  }
+  if (G.mode === 'online' && G.online.kind === 'coop') {
+    const o = G.online, mate = (o.team || []).find(t => t.slot !== o.slot), lv = LEVELS[o.level] ? LEVELS[o.level].label : 'Medium';
+    const title = `Team vs computer · ${lv}${mate && mate.name ? ` · with ${mate.name}` : ''}`;
+    const status = G.over ? resultText(G) : mate ? 'Your team’s turn' : `Your team’s turn · code ${o.code}`;
+    return { title, status, score: `${P[0].score}–${P[1].score}`, you: !G.over, done: G.over };
   }
   if (G.mode === 'online') {
     const o = G.online, opp = P[1 - o.seat];
@@ -1345,7 +1386,7 @@ function renderScores() {
       <div class="chip dim"><span class="nm">Squares left</span><span class="sc">${openHoles().length}</span></div>`;
     return;
   }
-  $('scores').innerHTML = S.players.map((p, i) => `<div class="chip ${!S.over && i === S.turn && (!isOn() || S.online.status === 'active') ? 'on' : ''}"><span class="nm">${esc(p.name)}${p.ai ? ' · ' + LEVELS[S.level].label : ''}${isOn() && i === S.online.seat ? ' (you)' : ''}${!S.over && i === S.turn && (!isOn() || S.online.status === 'active') ? ' · to play' : ''}</span><span class="sc">${p.score}</span></div>`).join('')
+  $('scores').innerHTML = S.players.map((p, i) => `<div class="chip ${!S.over && i === S.turn && (!isOn() || S.online.status === 'active') ? 'on' : ''}"><span class="nm">${esc(p.name)}${p.ai ? ' · ' + LEVELS[S.level].label : ''}${isOn() && i === S.online.seat ? (isCoop() ? '' : ' (you)') : ''}${!S.over && i === S.turn && (!isOn() || S.online.status === 'active') ? ' · to play' : ''}</span><span class="sc">${p.score}</span></div>`).join('')
     + `<div class="chip dim"><span class="nm">Bag</span><span class="sc">${S.bag.length}</span></div>`;
   bumpScores();
 }
@@ -1356,6 +1397,8 @@ function render() {
   $('board').classList.toggle('picking', ui.sel != null && !S.over);
   // board
   const pend = new Map(ui.pending.map(p => [p.k, p.d]));
+  const ghost = isOn() && ui.partner ? new Map(ui.partner.tiles.map(t => [t.k, t.d])) : null;
+  if (isCoop()) shareDraft();
   const last = new Set(S.last), holes = pz ? new Set(S.puzzle.holes) : null, circ = new Set(ui.circSel);
   for (let k = 0; k < N * N; k++) {
     const c = cells[k], d = S.board[k], pr = pz ? null : PREM[k];
@@ -1367,6 +1410,8 @@ function render() {
       c.innerHTML = tileHTML(d, st); label += `, ${d}${circ.has(k) ? ', selected' : ''}`;
     } else if (pend.has(k)) {
       c.innerHTML = tileHTML(pend.get(k), ui.bad && ui.bad.has(k) ? 'bad' : 'pending'); label += `, your ${pend.get(k)}, tap to take back`;
+    } else if (ghost && ghost.has(k)) {
+      c.innerHTML = tileHTML(ghost.get(k), 'ghost'); label += `, ${esc(ui.partner.name || 'Your teammate')} is trying ${ghost.get(k)} here`;
     } else if (pz) {
       if (holes.has(k)) { cls += ' hole'; label += ', empty, fill this square'; } else { cls += ' void'; label += ', not used'; }
       c.innerHTML = '';
@@ -1401,6 +1446,9 @@ function render() {
     : pz && S.puzzle.solved ? `Solved in ${fmtTime(S.puzzle.elapsed)}.`
     : ui.msg ? ui.msg
     : ui.circSel.length && !pz ? `Base ${baseLabel(ui.circSel)} selected${(g => g ? `, with ${g === 1 ? 'an empty square' : g + ' empty squares'} to fill` : '')(ui.circSel.filter(k => S.board[k] == null).length)}. Open the Workbench, tap another tile in line to extend it, or tap it again to clear.`
+    : isCoop() && ui.partner && ui.partner.tiles.length ? `${esc(ui.partner.name || 'Your teammate')} is trying some tiles (shown faintly). Either of you can play.`
+    : isCoop() && (S.online.team || []).length < 2 ? `Share code ${S.online.code} so a friend can join your team. You can play now.`
+    : isCoop() ? 'Your team’s turn. Either of you can play. Tap a tile, then a square.'
     : isOn() && S.online.status === 'waiting' ? `Waiting for someone to join. Share code ${S.online.code}. You can plan your first move meanwhile.`
     : isOn() && S.turn !== S.online.seat && ui.pending.length ? `Planning ahead. You can play this once ${esc(cur().name)} finishes their turn.`
     : isOn() && S.turn !== S.online.seat ? `${esc(cur().name)} is taking their turn. You can plan your next move meanwhile.`
@@ -1464,7 +1512,7 @@ function calcHTML(c) {
   return `<div class="pcalc">${t}</div>`;
 }
 function renderLog() {
-  $('log').innerHTML = S.log.length ? S.log.slice(0, 40).map(e => `<li><span class="who">${esc(S.players[e.who].name)}</span>${e.note ? `<span>${e.note}</span>` : e.eqs.map(eqHTML).join('') + (e.bingo ? `<span class="who">All 7 tiles +${BINGO}</span>` : '')}<span class="pts">${e.pts > 0 ? '+' + e.pts : e.pts < 0 ? '−' + Math.abs(e.pts) : '0'}</span></li>`).join('')
+  $('log').innerHTML = S.log.length ? S.log.slice(0, 40).map(e => `<li><span class="who">${esc(e.by || S.players[e.who].name)}</span>${e.note ? `<span>${e.note}</span>` : e.eqs.map(eqHTML).join('') + (e.bingo ? `<span class="who">All 7 tiles +${BINGO}</span>` : '')}<span class="pts">${e.pts > 0 ? '+' + e.pts : e.pts < 0 ? '−' + Math.abs(e.pts) : '0'}</span></li>`).join('')
     : `<li><span class="empty">No plays yet.</span></li>`;
 }
 function untilMidnight() { const d = new Date(), m = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1); const s = (m - d) / 1000; return `${Math.floor(s / 3600)}h ${Math.floor(s % 3600 / 60)}m`; }
@@ -1498,13 +1546,21 @@ function renderModal() {
         <label><input type="radio" name="mode" id="mAi" value="ai" ${mode === 'ai' ? 'checked' : ''}>Vs computer</label>
         <label><input type="radio" name="mode" id="mPp" value="pp" ${mode === 'pp' ? 'checked' : ''}>Vs a person<small>pass and play</small></label>
         <label><input type="radio" name="mode" id="mPz" value="puzzle" ${mode === 'puzzle' ? 'checked' : ''}>Puzzle</label>
-        <label><input type="radio" name="mode" id="mOn" value="online" ${mode === 'online' ? 'checked' : ''}>Online<small>vs a friend</small></label>
+        <label><input type="radio" name="mode" id="mOn" value="online" ${mode === 'online' ? 'checked' : ''}>Online<small>with a friend</small></label>
       </div></div>
       <div class="sub" id="secOn">
         <div class="seg" role="radiogroup" aria-label="Online game">
           <label><input type="radio" name="ok" id="okNew" value="create" ${ui.joinCode ? '' : 'checked'}>Start a game<small>get a code to share</small></label>
           <label><input type="radio" name="ok" id="okJoin" value="join" ${ui.joinCode ? 'checked' : ''}>Join a game<small>enter their code</small></label>
         </div>
+        <div id="fKind"><span class="lbl">Play</span>
+        <div class="seg" role="radiogroup" aria-label="Online game type">
+          <label><input type="radio" name="okind" id="okDuel" value="duel" checked>Against a friend<small>one on one</small></label>
+          <label><input type="radio" name="okind" id="okCoop" value="coop">With a friend<small>team up vs the computer</small></label>
+        </div>
+        <div class="seg" id="coopLvl" role="radiogroup" aria-label="Computer difficulty">
+          ${['easy', 'medium', 'hard'].map(l => `<label><input type="radio" name="clv" value="${l}" ${l === 'medium' ? 'checked' : ''}>${LEVELS[l].label}</label>`).join('')}
+        </div></div>
         <label class="field">Your name<input id="nOn" value="${esc(acct.name || '')}" placeholder="Your name" maxlength="24"></label>
         <label class="field" id="fCode">Game code<input id="cOn" value="${esc(ui.joinCode || '')}" placeholder="6 letters and numbers" maxlength="6" autocapitalize="characters" autocomplete="off"></label>
       </div>
@@ -1546,8 +1602,8 @@ function renderModal() {
       ${ix.list.some(e => e.mode === 'online') ? '<p class="fine" style="font-size:.85rem">Deleting an online game only removes it from this device.</p>' : ''}
       <div class="row-end"><button class="btn" id="mCancel">Close</button><button class="btn primary" id="mNewFromList">New game</button></div>`;
   } else if (S.modal === 'invite' && isOn()) {
-    html = `<h2>Game ready</h2>
-      <div class="invite"><p>Send this code to the person you want to play. They choose New game, then Online, then Join a game.</p>
+    html = `<h2>${isCoop() ? 'Team game ready' : 'Game ready'}</h2>
+      <div class="invite"><p>${isCoop() ? 'Send this code to the friend you want on your team. They choose New game, then Online, then Join a game. You can start playing before they join.' : 'Send this code to the person you want to play. They choose New game, then Online, then Join a game.'}</p>
       <span class="code" id="invCode">${S.online.code}</span>
       <p>Or send them this link, which opens the join screen with the code filled in:</p>
       <pre class="share" id="shareTxt">${esc(inviteLink())}</pre></div>
@@ -1595,7 +1651,8 @@ function renderModal() {
       if (join && code.length !== 6) { ui.msg = 'Enter the 6-character game code.'; ui.err = true; m.dataset.sig = ''; return render(); }
       ui.joinCode = ''; try { history.replaceState(null, '', location.pathname); } catch (e) {}
       if (S) S.modal = null;
-      return startOnline(join ? 'join' : 'create', name, code);
+      const coop = !join && $('okCoop').checked;
+      return startOnline(join ? 'join' : 'create', name, code, coop ? { coop: true, level: m.querySelector('input[name=clv]:checked').value } : {});
     }
     if (mode === 'puzzle') {
       const kind = $('pkR').checked ? 'random' : 'daily';
@@ -1615,7 +1672,7 @@ function renderModal() {
   on('mReady', () => { S.handoff = false; save(); render(); });
   on('mCopy', e => {
     const txt = S.modal === 'invite' ? inviteLink() : shareText(), btn = e.currentTarget;
-    if (inApp()) { nativeSend({ type: 'share', text: S.modal === 'invite' ? `Play Equacross with me. Join with code ${S.online.code}: ${txt}` : txt }); return; }
+    if (inApp()) { nativeSend({ type: 'share', text: S.modal === 'invite' ? (isCoop() ? `Team up with me in Equacross against the computer. Join with code ${S.online.code}: ${txt}` : `Play Equacross with me. Join with code ${S.online.code}: ${txt}`) : txt }); return; }
     const sel = () => { const r = document.createRange(); r.selectNodeContents($('shareTxt')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); btn.textContent = 'Selected, copy it'; };
     try { navigator.clipboard.writeText(txt).then(() => { btn.textContent = 'Copied'; }, sel); } catch (err) { sel(); }
   });
@@ -1623,7 +1680,7 @@ function renderModal() {
     const mode = m.querySelector('input[name=mode]:checked'); if (!mode) return;
     $('secAi').hidden = mode.value !== 'ai'; $('secPp').hidden = mode.value !== 'pp'; $('secPz').hidden = mode.value !== 'puzzle';
     $('pzLvl').hidden = !$('pkR').checked;
-    $('secOn').hidden = mode.value !== 'online'; $('fCode').hidden = !$('okJoin').checked;
+    $('secOn').hidden = mode.value !== 'online'; $('fCode').hidden = !$('okJoin').checked; $('fKind').hidden = $('okJoin').checked; $('coopLvl').hidden = !$('okCoop').checked;
   };
   m.querySelectorAll('input[type=radio]').forEach(i => i.addEventListener('change', sync));
   if ($('secAi')) sync();
@@ -2261,8 +2318,9 @@ async function accountSync(full) {
         if (have.has(g.gameId)) continue;
         const mineName = acct.name || 'You', P = [{}, {}];
         P[g.seat] = { name: mineName, score: g.score, ai: false, rack: [] }; P[1 - g.seat] = { name: g.opp || 'Waiting…', score: g.oppScore, ai: false, rack: [] };
+        const co = g.kind === 'coop' ? { kind: 'coop', level: g.level, slot: g.slot, team: [{ slot: g.slot, name: mineName }].concat(g.partner ? [{ slot: 1 - g.slot, name: g.partner }] : []) } : {};
         const G = { id: newId(), mode: 'online', board: Array(N * N).fill(null), players: P, bag: [], turn: 0, scoreless: 0, log: [], over: g.status === 'over', last: [], handoff: false, modal: null,
-                    online: { gameId: g.gameId, token: null, seat: g.seat, code: g.code, status: g.status, version: -1 } };
+                    online: { gameId: g.gameId, token: null, seat: g.seat, code: g.code, status: g.status, version: -1, ...co } };
         writeGame(G); const ix = readIndex(); indexEntry(ix, G); writeIndex(ix); added++;
       }
       if (added) refreshOnlineList();

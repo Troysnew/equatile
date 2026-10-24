@@ -2,8 +2,9 @@
 // Equacross online play and accounts. All state lives in the private "equatile" schema,
 // reached only through this function, so racks and the bag stay hidden.
 // A player is identified by their per-game token, or by their signed-in account.
+// Co-op games: two teammates share seat 0's rack against the computer in seat 1.
 import postgres from 'npm:postgres@3.4.5';
-import { N, RACK, PTS, DIST, evaluate } from './engine.js';
+import { N, RACK, PTS, DIST, evaluate, searchMoves, pickMove } from './engine.js';
 
 const sql = postgres(Deno.env.get('SUPABASE_DB_URL'), { prepare: false, max: 3 });
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
@@ -37,12 +38,15 @@ async function broadcast(gameId, version) {
   } catch (_) { /* clients also poll */ }
 }
 
-function view(g, ps, seat) {
+const teamName = tm => tm.map(t => t.name).filter(Boolean).join(' & ') || 'Your team';
+function view(g, ps, seat, co = null) {
   const me = ps.find(p => p.seat === seat);
+  const coop = co ? { kind: 'coop', level: g.ai_level, slot: co.slot, team: co.tm.map(t => ({ slot: t.slot, name: t.name })) } : {};
   return {
+    ...coop,
     gameId: g.id, code: g.code, status: g.status, version: g.version, turn: g.turn, seat,
     board: g.board, last: g.last, log: g.log.slice(0, 60), bag: g.bag.length, scoreless: g.scoreless, outSeat: g.out_seat,
-    players: [0, 1].map(s => { const p = ps.find(x => x.seat === s); return p ? { name: p.name, score: p.score, tiles: p.rack.length } : null; }),
+    players: [0, 1].map(s => { const p = ps.find(x => x.seat === s); return p ? { name: co ? (s === 0 ? teamName(co.tm) : 'Computer') : p.name, score: p.score, tiles: p.rack.length } : null; }),
     rack: me.rack,
   };
 }
@@ -86,9 +90,15 @@ async function load(tx, gameId, token, lock = true, user = null) {
   if (!g) throw new Fail('Game not found.', 404);
   const ps = await tx`select * from equatile.players where game_id = ${gameId} order by seat`;
   const h = await hash(String(token || ''));
+  if (g.kind === 'coop') {
+    const tm = await tx`select * from equatile.teammates where game_id = ${gameId} order by slot`;
+    const mt = (token && tm.find(t => t.token_hash === h)) || (user && tm.find(t => t.user_id === user.id));
+    if (!mt) throw new Fail('That link or code doesn’t belong to a player in this game.', 403);
+    return { g, ps, seat: 0, co: { tm, slot: mt.slot, name: mt.name } };
+  }
   const me = (token && ps.find(p => p.token_hash === h)) || (user && ps.find(p => p.user_id === user.id));
   if (!me) throw new Fail('That link or code doesn’t belong to a player in this game.', 403);
-  return { g, ps, seat: me.seat };
+  return { g, ps, seat: me.seat, co: null };
 }
 
 function endGame(g, ps, outSeat) {
@@ -106,17 +116,52 @@ async function save(tx, g, ps) {
   for (const p of ps) await tx`update equatile.players set rack = ${tx.json(p.rack)}, score = ${p.score} where game_id = ${g.id} and seat = ${p.seat}`;
 }
 
-function scorelessTurn(g, ps, seat, note) {
-  g.log.unshift({ who: seat, note, pts: 0 });
+function scorelessTurn(g, ps, seat, note, by) {
+  g.log.unshift(by ? { who: seat, by, note, pts: 0 } : { who: seat, note, pts: 0 });
   g.scoreless += 1;
   if (g.scoreless >= 6) endGame(g, ps, null); else g.turn = 1 - g.turn;
 }
+
+// The computer's reply in a co-op game. Search effort is bounded by work, to stay inside the function's CPU limit.
+const AI = { easy: { maxLen: 3, evals: 30000 }, medium: { maxLen: 5, evals: 80000 }, hard: { maxLen: 7, evals: 120000 } };
+function computerTurn(g, ps) {
+  const ai = ps[1], level = AI[g.ai_level] ? g.ai_level : 'medium', cfg = AI[level];
+  const m = pickMove(searchMoves(g.board, ai.rack, cfg.maxLen, cfg.evals), level);
+  if (m) {
+    const res = evaluate(g.board, m.pl);
+    for (const t of m.pl) { g.board[t.k] = t.d; ai.rack.splice(ai.rack.indexOf(t.d), 1); }
+    ai.score += res.total; draw(ai.rack, g.bag);
+    g.log.unshift({ who: 1, eqs: res.runs.map(r => r.eq.parts), pts: res.total, bingo: res.bingo });
+    g.last = m.pl.map(t => t.k); g.scoreless = 0;
+    if (!ai.rack.length && !g.bag.length) endGame(g, ps, 1); else g.turn = 0;
+  } else if (g.bag.length >= RACK) {
+    const old = ai.rack; ai.rack = []; draw(ai.rack, g.bag); g.bag.push(...old); shuffle(g.bag);
+    scorelessTurn(g, ps, 1, `Swapped ${old.length} tiles`);
+  } else scorelessTurn(g, ps, 1, 'Passed');
+}
+const afterTeam = (g, ps, co) => { if (co && g.status === 'active' && g.turn === 1) computerTurn(g, ps); };
 
 const actions = {
   async create(b, after) {
     const bag = shuffle(DIST.flatMap((n, d) => Array(n).fill(d)));
     const r0 = [], r1 = []; draw(r0, bag); draw(r1, bag); r1.push(bag.pop()); // second player starts with 8
     const token = makeToken(), h = await hash(token);
+    if (b.coop) {
+      const level = AI[b.level] ? b.level : 'medium';
+      for (let i = 0; i < 5; i++) {
+        try {
+          return await sql.begin(async tx => {
+            const [g] = await tx`insert into equatile.games (code, status, kind, ai_level, board, bag) values (${makeCode()}, 'active', 'coop', ${level}, ${tx.json(Array(N * N).fill(null))}, ${tx.json(bag)}) returning *`;
+            await tx`insert into equatile.players (game_id, seat, name, token_hash, rack) values (${g.id}, 0, 'Team', '', ${tx.json(r0)}), (${g.id}, 1, 'Computer', '', ${tx.json(r1)})`;
+            await tx`insert into equatile.teammates (game_id, slot, name, token_hash, user_id) values (${g.id}, 0, ${cleanName(b.name, 'Player 1')}, ${h}, ${b.__user ? b.__user.id : null})`;
+            const ps = await tx`select * from equatile.players where game_id = ${g.id} order by seat`;
+            const tm = await tx`select * from equatile.teammates where game_id = ${g.id} order by slot`;
+            return { token, ...view(g, ps, 0, { tm, slot: 0 }) };
+          });
+        } catch (e) { if (!String(e.message).includes('duplicate')) throw e; }
+      }
+      throw new Fail('Couldn’t make a game code. Try again.', 500);
+    }
     for (let i = 0; i < 5; i++) {
       const code = makeCode();
       try {
@@ -134,8 +179,20 @@ const actions = {
     return await sql.begin(async tx => {
       const [g] = await tx`select * from equatile.games where code = ${code} for update`;
       if (!g) throw new Fail('No game with that code.', 404);
-      if (g.status !== 'waiting') throw new Fail('That game already has two players.', 409);
       const token = makeToken(), uid = b.__user ? b.__user.id : null;
+      if (g.kind === 'coop') {
+        if (g.status === 'over') throw new Fail('That game is over.', 409);
+        const tm0 = await tx`select * from equatile.teammates where game_id = ${g.id} order by slot`;
+        if (tm0.length > 1) throw new Fail('That team already has two players.', 409);
+        if (uid && tm0[0].user_id === uid) throw new Fail('That’s your own game. Send the code to your teammate.', 409);
+        await tx`insert into equatile.teammates (game_id, slot, name, token_hash, user_id) values (${g.id}, 1, ${cleanName(b.name, 'Player 2')}, ${await hash(token)}, ${uid})`;
+        const ps = await tx`select * from equatile.players where game_id = ${g.id} order by seat`;
+        const tm = await tx`select * from equatile.teammates where game_id = ${g.id} order by slot`;
+        await save(tx, g, ps);
+        after.push(() => broadcast(g.id, g.version));
+        return { token, ...view(g, ps, 0, { tm, slot: 1 }) };
+      }
+      if (g.status !== 'waiting') throw new Fail('That game already has two players.', 409);
       if (uid) { const [host] = await tx`select user_id from equatile.players where game_id = ${g.id} and seat = 0`; if (host && host.user_id === uid) throw new Fail('That’s your own game. Send the code to someone else.', 409); }
       await tx`update equatile.players set name = ${cleanName(b.name, 'Player 2')}, token_hash = ${await hash(token)}, user_id = ${uid} where game_id = ${g.id} and seat = 1`;
       g.status = 'active';
@@ -153,10 +210,16 @@ const actions = {
       from equatile.players p join equatile.games g on g.id = p.game_id
       left join equatile.players o on o.game_id = p.game_id and o.seat = 1 - p.seat
       where p.user_id = ${u.id} order by g.updated_at desc limit 50`;
+    const coop = await sql`select g.id, g.code, g.status, g.turn, g.version, g.updated_at, g.ai_level, t.slot, p.score, o.score as opp_score,
+        (select t2.name from equatile.teammates t2 where t2.game_id = g.id and t2.slot = 1 - t.slot) as partner
+      from equatile.teammates t join equatile.games g on g.id = t.game_id
+      join equatile.players p on p.game_id = g.id and p.seat = 0 join equatile.players o on o.game_id = g.id and o.seat = 1
+      where t.user_id = ${u.id} order by g.updated_at desc limit 50`;
     return {
       user: { id: u.id, email: u.email || null, provider: (u.app_metadata && u.app_metadata.provider) || null },
       name: a ? a.name : '', devices: a ? a.devices : {}, daily: a ? a.daily : {},
-      games: games.map(r => ({ gameId: r.id, code: r.code, status: r.status, seat: r.seat, yourTurn: r.status === 'active' && r.turn === r.seat, score: r.score, opp: r.opp || '', oppScore: r.opp_score || 0, version: r.version, updated: r.updated_at })),
+      games: games.map(r => ({ gameId: r.id, code: r.code, status: r.status, seat: r.seat, yourTurn: r.status === 'active' && r.turn === r.seat, score: r.score, opp: r.opp || '', oppScore: r.opp_score || 0, version: r.version, updated: r.updated_at })).concat(
+        coop.map(r => ({ gameId: r.id, code: r.code, status: r.status, kind: 'coop', level: r.ai_level, slot: r.slot, partner: r.partner || '', seat: 0, yourTurn: r.status === 'active' && r.turn === 0, score: r.score, opp: 'Computer', oppScore: r.opp_score || 0, version: r.version, updated: r.updated_at }))),
     };
   },
   // Stores this device's stats snapshot and merges daily results; returns the combined account data.
@@ -190,7 +253,8 @@ const actions = {
       if (!x || !isUuid(x.gameId) || !x.token) continue;
       const h = await hash(String(x.token));
       const r = await sql`update equatile.players set user_id = ${u.id} where game_id = ${x.gameId} and token_hash = ${h} and (user_id is null or user_id = ${u.id}) returning seat`;
-      linked += r.length;
+      const r2 = await sql`update equatile.teammates set user_id = ${u.id} where game_id = ${x.gameId} and token_hash = ${h} and (user_id is null or user_id = ${u.id}) returning slot`;
+      linked += r.length + r2.length;
     }
     return { linked };
   },
@@ -203,6 +267,7 @@ const actions = {
   async deleteAccount(b) {
     const u = needUser(b);
     await sql`update equatile.players set user_id = null where user_id = ${u.id}`;
+    await sql`update equatile.teammates set user_id = null where user_id = ${u.id}`;
     await sql`delete from equatile.accounts where user_id = ${u.id}`;
     for (const { group_id } of await sql`select group_id from equatile.group_members where user_id = ${u.id}`) await sql.begin(tx => leaveGroup(tx, group_id, u.id));
     const r = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${u.id}`, { method: 'DELETE', headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } });
@@ -294,12 +359,12 @@ const actions = {
   },
   // ---------- games ----------
   async state(b, after) {
-    const { g, ps, seat } = await load(sql, b.gameId, b.token, false, b.__user);
-    return view(g, ps, seat);
+    const { g, ps, seat, co } = await load(sql, b.gameId, b.token, false, b.__user);
+    return view(g, ps, seat, co);
   },
   async play(b, after) {
     return await sql.begin(async tx => {
-      const { g, ps, seat } = await load(tx, b.gameId, b.token, true, b.__user);
+      const { g, ps, seat, co } = await load(tx, b.gameId, b.token, true, b.__user);
       if (g.status !== 'active') throw new Fail(g.status === 'waiting' ? 'Waiting for the other player to join.' : 'This game is over.', 409);
       if (g.turn !== seat) throw new Fail('It’s not your turn.', 409);
       const me = ps[seat];
@@ -313,17 +378,18 @@ const actions = {
       if (!res.ok) throw new Fail(res.msg || 'Every line has to be a true equation.');
       for (const t of pl) g.board[t.k] = t.d;
       me.rack = rack; me.score += res.total; draw(me.rack, g.bag);
-      g.log.unshift({ who: seat, eqs: res.runs.map(r => r.eq.parts), pts: res.total, bingo: res.bingo });
+      g.log.unshift({ who: seat, ...(co ? { by: co.name } : {}), eqs: res.runs.map(r => r.eq.parts), pts: res.total, bingo: res.bingo });
       g.last = pl.map(t => t.k); g.scoreless = 0;
       if (!me.rack.length && !g.bag.length) endGame(g, ps, seat); else g.turn = 1 - seat;
+      afterTeam(g, ps, co);
       await save(tx, g, ps);
       after.push(() => broadcast(g.id, g.version));
-      return { scored: res.total, ...view(g, ps, seat) };
+      return { scored: res.total, ...view(g, ps, seat, co) };
     });
   },
   async swap(b, after) {
     return await sql.begin(async tx => {
-      const { g, ps, seat } = await load(tx, b.gameId, b.token, true, b.__user);
+      const { g, ps, seat, co } = await load(tx, b.gameId, b.token, true, b.__user);
       if (g.status !== 'active' || g.turn !== seat) throw new Fail('It’s not your turn.', 409);
       const me = ps[seat], digits = (Array.isArray(b.digits) ? b.digits : []).map(d => d | 0);
       if (!digits.length) throw new Fail('Pick tiles to swap.');
@@ -331,32 +397,34 @@ const actions = {
       const rack = me.rack.slice();
       for (const d of digits) { const i = rack.indexOf(d); if (i < 0) throw new Fail('Those tiles aren’t all in your rack.'); rack.splice(i, 1); }
       me.rack = rack; draw(me.rack, g.bag); g.bag.push(...digits); shuffle(g.bag);
-      scorelessTurn(g, ps, seat, `Swapped ${digits.length} tile${digits.length > 1 ? 's' : ''}`);
+      scorelessTurn(g, ps, seat, `Swapped ${digits.length} tile${digits.length > 1 ? 's' : ''}`, co && co.name);
+      afterTeam(g, ps, co);
       await save(tx, g, ps);
       after.push(() => broadcast(g.id, g.version));
-      return view(g, ps, seat);
+      return view(g, ps, seat, co);
     });
   },
   async pass(b, after) {
     return await sql.begin(async tx => {
-      const { g, ps, seat } = await load(tx, b.gameId, b.token, true, b.__user);
+      const { g, ps, seat, co } = await load(tx, b.gameId, b.token, true, b.__user);
       if (g.status !== 'active' || g.turn !== seat) throw new Fail('It’s not your turn.', 409);
-      scorelessTurn(g, ps, seat, 'Passed');
+      scorelessTurn(g, ps, seat, 'Passed', co && co.name);
+      afterTeam(g, ps, co);
       await save(tx, g, ps);
       after.push(() => broadcast(g.id, g.version));
-      return view(g, ps, seat);
+      return view(g, ps, seat, co);
     });
   },
   async resign(b, after) {
     return await sql.begin(async tx => {
-      const { g, ps, seat } = await load(tx, b.gameId, b.token, true, b.__user);
+      const { g, ps, seat, co } = await load(tx, b.gameId, b.token, true, b.__user);
       if (g.status === 'over') throw new Fail('This game is over.', 409);
-      g.log.unshift({ who: seat, note: 'Resigned', pts: 0 });
+      g.log.unshift({ who: seat, ...(co ? { by: co.name } : {}), note: co ? 'Gave up' : 'Resigned', pts: 0 });
       g.status = 'over'; g.out_seat = null;
       ps[seat].score = Math.min(ps[seat].score, ps[1 - seat].score - 1);
       await save(tx, g, ps);
       after.push(() => broadcast(g.id, g.version));
-      return view(g, ps, seat);
+      return view(g, ps, seat, co);
     });
   },
 };

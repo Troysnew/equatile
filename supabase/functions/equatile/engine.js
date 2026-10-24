@@ -109,4 +109,61 @@ function evaluate(board, pl, fast, empty) {
   return { ok, msg: ok ? '' : 'Every line has to be a true equation.', runs, total: ok ? total : 0, bingo };
 }
 
-export { N, MID, CENTER, RACK, PTS, DIST, OPBONUS, BINGO, PREM, findEqs, evaluate, get, lineRun };
+/* ---------- computer moves (same search as the game page, bounded by work instead of time) ---------- */
+function uniquePerms(rack, L) {
+  const out = [], used = Array(rack.length).fill(false), cur = [];
+  (function rec() {
+    if (cur.length === L) { out.push(cur.slice()); return; }
+    const tried = new Set();
+    for (let i = 0; i < rack.length; i++) {
+      if (used[i] || tried.has(rack[i])) continue;
+      tried.add(rack[i]); used[i] = true; cur.push(i); rec(); cur.pop(); used[i] = false;
+    }
+  })();
+  return out;
+}
+function searchMoves(board, rack, maxLen, evalLimit, rng = Math.random) {
+  const empty = board.every(x => x == null);
+  maxLen = Math.min(rack.length, maxLen);
+  const segs = [];
+  for (const [dr, dc] of [[0, 1], [1, 0]]) for (let line = 0; line < N; line++) for (let st = 0; st < N; st++) {
+    let r = dr ? st : line, c = dr ? line : st;
+    if (board[r * N + c] != null) continue;
+    const cells = [];
+    while (r < N && c < N && cells.length < maxLen) {
+      const k = r * N + c;
+      if (board[k] == null) {
+        cells.push(k);
+        const L = cells.length;
+        if (!(dr && L === 1)) {
+          const conn = empty ? (L >= 3 && cells.includes(CENTER)) : cells.some(x => hasNeighbor(board, x));
+          if (conn) segs.push(cells.slice());
+        }
+      }
+      r += dr; c += dc;
+    }
+  }
+  for (let i = segs.length - 1; i > 0; i--) { const j = rng() * (i + 1) | 0; [segs[i], segs[j]] = [segs[j], segs[i]]; }
+  const perms = {}, moves = [];
+  let n = 0;
+  outer: for (const seg of segs) {
+    const P = perms[seg.length] || (perms[seg.length] = uniquePerms(rack, seg.length));
+    for (const perm of P) {
+      const pl = seg.map((k, i) => ({ k, d: rack[perm[i]] }));
+      const res = evaluate(board, pl, true, empty);
+      if (res.ok) moves.push({ pl, total: res.total });
+      if (++n >= evalLimit) break outer;
+    }
+  }
+  return moves;
+}
+function pickMove(moves, level, rng = Math.random) {
+  if (!moves.length) return null;
+  moves.sort((a, b) => a.total - b.total);
+  const n = moves.length;
+  if (level === 'hard') return moves[n - 1];
+  const [lo, hi] = level === 'easy' ? [0, Math.max(1, Math.ceil(n * 0.5))] : [Math.floor(n * 0.55), Math.max(Math.floor(n * 0.55) + 1, Math.ceil(n * 0.85))];
+  return moves[Math.min(n - 1, lo + (rng() * (hi - lo) | 0))];
+}
+
+export { N, MID, CENTER, RACK, PTS, DIST, OPBONUS, BINGO, PREM, LEVELS, findEqs, evaluate, get, lineRun, searchMoves, pickMove };
