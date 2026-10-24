@@ -1046,7 +1046,13 @@ function commitPlay(pl, res) {
   if (!S.tutorial || p.ai) playToast(res, p.ai || S.mode === 'pp' ? p.name : null);
   if (!p.ai) buzz('success');
   if (S.mode === 'ai' && !p.ai && !S.tutorial) recordPlay(res, pl);
-  if (S.tutorial && !p.ai) { S.tutorial = null; S.modal = 'tutdone'; S.tutPts = res.total; S.tutEq = res.runs[0].eq.parts; S.tutOk = pl.length === TUT.length && TUT.every(g => pl.some(t => t.k === g.k && t.d === g.d)); tutMark(); }
+  if (S.tutorial && !p.ai) {
+    const tg = tutTargets(), ok = pl.length === tg.length && tg.every(g => pl.some(t => t.k === g.k && t.d === g.d));
+    S.tutPts = res.total; S.tutEq = res.runs[0].eq.parts; S.tutOk = ok;
+    // After the scripted first move the computer answers with its scripted move; any other play ends the tutorial.
+    if (S.tutorial.phase === 1 && ok) S.tutorial = { step: 'cpu', phase: 'cpu' };
+    else { S.tutorial = null; S.modal = 'tutdone'; tutMark(); }
+  } else if (S.tutorial && p.ai) S.tutorial = { step: 'cpudone', phase: 'cpudone' };
   for (const t of pl) S.board[t.k] = t.d;
   pl.map(t => t.ri).sort((a, b) => b - a).forEach(i => p.rack.splice(i, 1));
   p.score += res.total;
@@ -1083,6 +1089,17 @@ function endGame(outIdx) {
 }
 async function maybeAI() {
   if (!S || S.over || isPz() || !cur().ai || ui.thinking || S.modal === 'tutdone') return;
+  if (S.tutorial && S.tutorial.phase === 'cpu') {
+    if (S.tutorial.step !== 'cpuplay') return render(); // wait for Watch
+    const game = S; ui.thinking = true; render();
+    await new Promise(r => setTimeout(r, 900));
+    ui.thinking = false; if (S !== game) return render();
+    const rack = cur().rack, used = new Set();
+    const pl = TUT_CPU.map(g => { const ri = rack.findIndex((d, i) => d === g.d && !used.has(i)); used.add(ri); return { k: g.k, d: g.d, ri }; });
+    const res = evaluate(S.board, pl);
+    if (pl.every(t => t.ri >= 0) && res.ok) return commitPlay(pl, res);
+    S.tutorial = null; tutMark(); // board isn't as scripted: carry on with a normal game
+  }
   const game = S;
   ui.thinking = true; render();
   const t0 = performance.now(), L = LEVELS[S.level] || LEVELS.medium;
@@ -1536,10 +1553,10 @@ function renderModal() {
       ${S.tutOk ? '' : `<p class="tut-note">Nice play. Equacross read your line as <b>${esc(eq.join(' '))}</b> for <b>${S.tutPts || 0} points</b>.</p>`}
       <ul class="tut-list">
         <li><span class="ti ti-ok">${CHECK}</span><span>Every line touching your tiles, across and down, has to be a true equation.</span></li>
-        <li><span class="ti ti-line"><i></i></span><span>Longer lines score every tile in them.</span></li>
-        <li><span class="ti ti-prem"><i></i><i></i><i></i><i></i></span><span>Colored squares can boost a tile or the whole equation.</span></li>
+        <li><span class="ti ti-line"><i></i></span><span>Build off what’s on the board: cross a line, or make one longer. A longer line scores every tile in it.</span></li>
+        <li><span class="ti ti-prem"><i></i><i></i><i></i><i></i></span><span>Colored squares boost a tile (2T, 3T) or the whole equation (2E, 3E), and × or ÷ earns 5 extra points.</span></li>
       </ul>
-      <p class="tut-ready">Now you’re ready to play.</p>
+      <p class="tut-ready">Now you’re ready to play. The computer goes next.</p>
       <button class="btn primary tut-go" id="mTutGo">Keep playing</button>`;
   } else if (S.modal === 'new') {
     const mode = ui.joinCode ? 'online' : S.mode;
@@ -2603,27 +2620,33 @@ document.addEventListener('click', e => { if (e.target && e.target.id === 'mAcct
 /* ---------- guided first move ---------- */
 const TUTKEY = 'equatile.tutorial';
 const TUT = [{ d: 9, k: CENTER - 1 }, { d: 7, k: CENTER }, { d: 2, k: CENTER + 1 }]; // 9 7 2 across the star: 9 − 7 = 2
+const TUT_CPU = [{ d: 1, k: CENTER - N }, { d: 8, k: CENTER + N }];                    // the computer crosses the 7: 1 + 7 = 8
+const TUT2 = [{ d: 6, k: CENTER + 2 }, { d: 7, k: CENTER + 3 }, { d: 1, k: CENTER + 4 }]; // extend the row: 97 − 26 = 71
+const tutTargets = () => S.tutorial && S.tutorial.phase === 2 ? TUT2 : TUT;
 function tutSeen() { try { return !!localStorage.getItem(TUTKEY); } catch (e) { return true; } }
 function tutMark() { try { localStorage.setItem(TUTKEY, 'done'); } catch (e) {} }
 function startTutorial() {
   newGame({ mode: 'ai', level: 'medium' });
   // Give the player a rack that holds 9, 7 and 2, drawn fairly from the same bag.
-  const p = S.players[0], want = [9, 7, 2, 4, 6, 1, 3];
-  S.bag.push(...p.rack); p.rack = [];
+  // The player gets 9 7 2 for the first move and 6 7 1 for the second; the computer gets 1 and 8 for its reply.
+  const p = S.players[0], c = S.players[1], want = [9, 7, 2, 6, 7, 1, 4], cwant = [1, 8];
+  S.bag.push(...p.rack, ...c.rack); p.rack = []; c.rack = [];
   for (const d of want) { const i = S.bag.lastIndexOf(d); if (i >= 0) { S.bag.splice(i, 1); p.rack.push(d); } }
-  draw(p); shuffle(S.bag); shuffle(p.rack);
-  S.tutorial = { step: 'intro' };
+  for (const d of cwant) { const i = S.bag.lastIndexOf(d); if (i >= 0) { S.bag.splice(i, 1); c.rack.push(d); } }
+  draw(p); draw(c); if (S.bag.length) c.rack.push(S.bag.pop()); shuffle(S.bag); shuffle(p.rack); shuffle(c.rack);
+  S.tutorial = { step: 'intro', phase: 1 };
   resetUI(); save(); scrollTo(0, 0); render();
 }
 function tutState() {
   // Which guided placement is next, and whether anything is off-script.
   const pend = ui.pending, rack = me().rack;
-  const wrong = pend.some(t => !TUT.some(g => g.k === t.k && g.d === t.d));
-  const next = TUT.find(g => !pend.some(t => t.k === g.k && t.d === g.d));
+  const tg = tutTargets();
+  const wrong = pend.some(t => !tg.some(g => g.k === t.k && g.d === t.d));
+  const next = tg.find(g => !pend.some(t => t.k === g.k && t.d === g.d));
   return { wrong, next, selOk: next && ui.sel != null && rack[ui.sel] === next.d };
 }
 // Reusable pieces: step indicator, equation chip, pointing hand.
-const stepTag = n => `<span class="tstep">${n} of 5</span>`;
+const stepTag = n => `<span class="tstep">${n} of 7</span>`;
 const CHECK = '<svg class="ck" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 function eqChipHTML(parts, pts, big) { return `<span class="eqchip${big ? ' big' : ''}">${eqHTML(parts)}${CHECK}<span class="pp">+${pts}</span></span>`; }
 const HAND = '<svg viewBox="0 -7 48 54" aria-hidden="true"><g stroke="#C83C30" stroke-width="3" stroke-linecap="round"><path d="M13 2l-4-3.5M23.5 -1v-5M34 2l4-3.5"/></g><path d="M20 30V9a3.5 3.5 0 0 1 7 0v10a3.5 3.5 0 0 1 7 0v2a3.5 3.5 0 0 1 7 0v9c0 8-6 14-14 14h-2c-5 0-8-3-11-7l-6-8a3.4 3.4 0 0 1 5-4.6z" fill="#fff" stroke="#193B2C" stroke-width="3" stroke-linejoin="round"/><path d="M27 19v6M34 21v5" stroke="#193B2C" stroke-width="2.4" stroke-linecap="round"/></svg>';
@@ -2633,40 +2656,52 @@ function renderCoach() {
   const el = $('coach'), hand = $('coachHand');
   const T = S && S.tutorial;
   clearCoachMarks();
-  if (!T || S.modal || !humanTurn() || ui.wb) { el.hidden = true; hand.hidden = true; coachSig = ''; coachParts = null; return; }
+  const cpuStep = T && T.phase === 'cpu' && !ui.thinking && !S.modal;
+  if (!T || S.modal || (!humanTurn() && !cpuStep) || ui.wb) { el.hidden = true; hand.hidden = true; coachSig = ''; coachParts = null; return; }
   const rack = me().rack, skip = `<button type="button" class="linkbtn" id="cSkip">Skip tutorial</button>`;
   const ri = d => rack.findIndex((x, i) => x === d && !ui.pending.some(t => t.ri === i));
   let tile = null, square = null, button = null, point = null, html = '', chip = '';
-  if (T.step === 'intro') {
+  if (T.phase === 'cpu') {
+    html = `${stepTag(5)}<h3>Now the computer plays</h3><p>Players take turns, and every play has to connect to tiles already on the board. Watch how the computer uses your line.</p><div class="crow">${skip}<button type="button" class="btn primary" id="cGo">Watch</button></div>`;
+  } else if (T.step === 'cpudone') {
+    T.lineCells = TUT_CPU.map(g => cells[g.k]).concat([cells[CENTER]]);
+    html = `${stepTag(5)}<h3>It built off your 7</h3><p>The computer added a 1 above your 7 and an 8 below it. That column reads <b>1 + 7 = 8</b>. Lines can cross, and every line a play touches has to be true.</p><div class="crow">${skip}<button type="button" class="btn primary" id="cGo">Next</button></div>`;
+  } else if (T.step === 'intro') {
     html = `${stepTag(1)}<h3>Let’s make 9 − 7 = 2.</h3><p>In Equacross, every line of tiles has to read as a true equation. You place only digits; the game finds the + − × ÷ and =. We’ll guide you through your first move.</p><div class="crow">${skip}<button type="button" class="btn primary" id="cGo">Show me</button></div>`;
   } else {
     const st = tutState();
     if (st.wrong) {
       button = $('bRecall'); point = button;
-      html = `${stepTag(st.next && st.next.d === 9 ? 2 : 3)}<h3>Not quite</h3><p>That tile isn’t part of this example. Tap <b>Recall</b> to bring your tiles back, then try again.</p><div class="crow">${skip}</div>`;
+      html = `${stepTag(T.phase === 2 ? 6 : st.next && st.next.d === 9 ? 2 : 3)}<h3>Not quite</h3><p>That tile isn’t part of this example. Tap <b>Recall</b> to bring your tiles back, then try again.</p><div class="crow">${skip}</div>`;
     } else if (st.next) {
       square = cells[st.next.k];
       const i = ri(st.next.d); if (!st.selOk && i >= 0) tile = $('rack').querySelector(`.rt[data-i="${i}"]`);
       point = st.selOk ? square : tile;
-      const head = st.next.d === 9 ? 'Start with a 9' : st.next.d === 7 ? 'Nice. Now add a 7' : 'And now the 2';
-      const body = st.next.d === 9
+      const p2 = T.phase === 2, n2 = p2 ? TUT2.indexOf(st.next) : -1;
+      const head = p2 ? ['Now make your line longer', 'Then a 7', 'And a 1'][n2] : st.next.d === 9 ? 'Start with a 9' : st.next.d === 7 ? 'Nice. Now add a 7' : 'And now the 2';
+      const body = p2 ? [st.selOk ? 'Place it right after your 2.' : 'Your row 9 7 2 can keep growing. Tap the 6, then the square right after the 2.',
+          st.selOk ? 'Place it after the 6.' : 'Tap the 7, then the next square.',
+          st.selOk ? 'Place it on the 2T square. It doubles that tile.' : 'Last one. Tap the 1, then the highlighted 2T square.'][n2]
+        : st.next.d === 9
         ? (st.selOk ? 'Now tap the highlighted square. The first play of a game always covers the ★ star.' : 'Tap the 9 in your rack, then place it on the highlighted square. You can also drag it.')
         : st.next.d === 7 ? (st.selOk ? 'Place it on the star, right after the 9.' : 'Build your line from left to right. Tap the 7, then the highlighted square.')
         : (st.selOk ? 'Place it on the highlighted square to finish the line.' : 'One more tile. Tap the 2, then the highlighted square.');
-      html = `${stepTag(st.next.d === 9 ? 2 : 3)}<h3>${head}</h3><p>${body}</p><div class="crow">${skip}</div>`;
+      html = `${stepTag(p2 ? 6 : st.next.d === 9 ? 2 : 3)}<h3>${head}</h3><p>${body}</p><div class="crow">${skip}</div>`;
     } else {
       // The equation and points come from the real engine.
       const res = evaluate(S.board, ui.pending), run = res.runs[0];
       button = $('bPlay'); point = button; T.lineCells = ui.pending.map(t => cells[t.k]);
       if (res.ok && run && run.eq) chip = eqChipHTML(run.eq.parts, res.total, true);
-      html = `${stepTag(4)}<h3>You found an equation!</h3><p>Equacross reads ${run ? run.s : '972'} as <b>${run && run.eq ? esc(run.eq.parts.join(' ')) : '9 − 7 = 2'}</b>. Press <b>Play</b> to lock it in.</p><div class="crow">${skip}</div>`;
+      html = T.phase === 2
+        ? `${stepTag(7)}<h3>One bigger equation</h3><p>The whole row is read again: ${run ? run.s : '972671'} is <b>${run && run.eq ? esc(run.eq.parts.join(' ')) : '97 − 26 = 71'}</b>. Every tile in the line scores, including the three already there. Press <b>Play</b>.</p><div class="crow">${skip}</div>`
+        : `${stepTag(4)}<h3>You found an equation!</h3><p>Equacross reads ${run ? run.s : '972'} as <b>${run && run.eq ? esc(run.eq.parts.join(' ')) : '9 − 7 = 2'}</b>. Press <b>Play</b> to lock it in.</p><div class="crow">${skip}</div>`;
     }
   }
   if (tile) tile.classList.add('coach-tile');
   if (square) square.classList.add('coach-square');
   if (button) button.classList.add('coach-target');
   // Briefly flash a square when the right tile lands on it.
-  const placed = ui.pending.filter(t => TUT.some(g => g.k === t.k && g.d === t.d));
+  const placed = ui.pending.filter(t => tutTargets().some(g => g.k === t.k && g.d === t.d));
   if (placed.length > (T.placed || 0)) { const k = placed[placed.length - 1].k; cells[k].classList.remove('landed'); void cells[k].offsetWidth; cells[k].classList.add('landed'); setTimeout(() => cells[k].classList.remove('landed'), 700); }
   T.placed = placed.length;
   const sig = html + chip;
@@ -2674,12 +2709,15 @@ function renderCoach() {
     coachSig = sig;
     el.innerHTML = (chip ? `<div class="coach-chip">${chip}</div>` : '') + `<div class="coach-card">${html}</div>`;
     el.classList.remove('swap'); void el.offsetWidth; el.classList.add('swap');
-    const go = $('cGo'); if (go) { go.onclick = () => { S.tutorial.step = 'place'; save(); render(); }; if (document.activeElement === document.body) go.focus({ preventScroll: true }); }
-    $('cSkip').onclick = () => { S.tutorial = null; tutMark(); ui.pending = []; ui.sel = null; save(); render(); };
+    const go = $('cGo'); if (go) { go.onclick = () => {
+      if (S.tutorial.phase === 'cpu') { S.tutorial.step = 'cpuplay'; save(); render(); return maybeAI(); }
+      if (S.tutorial.step === 'cpudone') { S.tutorial = { step: 'place', phase: 2 }; save(); return render(); }
+      S.tutorial.step = 'place'; save(); render(); }; if (document.activeElement === document.body) go.focus({ preventScroll: true }); }
+    $('cSkip').onclick = () => { S.tutorial = null; tutMark(); ui.pending = []; ui.sel = null; save(); render(); maybeAI(); };
   }
   el.hidden = false;
   hand.hidden = !point;
-  const done = !tile && !square && button && button.id === 'bPlay';
+  const done = (!tile && !square && button && button.id === 'bPlay') || T.step === 'cpudone';
   coachParts = { protect: [tile, square, button, ...(done ? T.lineCells || [] : [])].filter(Boolean), point, overRack: done };
   positionCoach();
   const vis = [tile || square, button].filter(Boolean).find(e => { const r = e.getBoundingClientRect(); return r.bottom > innerHeight || r.top < 0; });
