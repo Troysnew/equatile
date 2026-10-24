@@ -6,7 +6,8 @@
 import postgres from 'npm:postgres@3.4.5';
 import { N, RACK, PTS, DIST, evaluate, searchMoves, pickMove } from './engine.js';
 
-const sql = postgres(Deno.env.get('SUPABASE_DB_URL'), { prepare: false, max: 3 });
+// Close idle connections quickly: every server instance keeps its own pool, and idle ones used to fill the database.
+const sql = postgres(Deno.env.get('SUPABASE_DB_URL'), { prepare: false, max: 2, idle_timeout: 5, max_lifetime: 120, connect_timeout: 10 });
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
