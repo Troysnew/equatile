@@ -638,7 +638,7 @@ body{font-size:15px;-webkit-font-smoothing:antialiased}
           <li>Place one or more tiles in a single row or column, touching what's already on the board.</li>
           <li>Every line of 2 or more touching tiles, across and down, must split into a true equation. You don't place symbols; the game finds where they go.</li>
           <li>Operators are <span class="k">+ − × ÷</span>. The equals sign can sit last or first: <span class="k">297</span> reads as <span class="k">2 = 9 − 7</span>.</li>
-          <li>Adding 0, subtracting 0, multiplying by 0 and dividing 0 don't count. <span class="k">7 − 7 = 0</span> is fine.</li>
+          <li>Multiplying by 0 and dividing 0 don't count. Adding or subtracting 0 is fine: <span class="k">7 + 0 = 7</span>, and so is <span class="k">7 − 7 = 0</span>.</li>
           <li>Multi-digit numbers can't start with 0. Two tiles alone can never be an equation.</li>
           <li>The first play covers the star and uses at least 3 tiles. The star has no bonus.</li>
           <li>× or ÷ equations earn <span class="k">+5</span>. Playing all 7 tiles earns <span class="k">+20</span>.</li>
@@ -730,8 +730,12 @@ const SB_URL = 'https://tbxtotxdbntlpesexcrp.supabase.co', SB_KEY = 'sb_publisha
 
 /* ---------- equations ---------- */
 const eqCache = new Map();
+// Puzzles are generated with the original rules (no adding or subtracting 0), so every day's
+// puzzle stays the same on every device and app version. Checking a play always uses the current rules.
+let genRules = false;
 function findEqs(s) {
-  if (eqCache.has(s)) return eqCache.get(s);
+  const key = genRules ? 'g' + s : s;
+  if (eqCache.has(key)) return eqCache.get(key);
   const n = s.length, out = [];
   const ok = x => x.length === 1 || x[0] !== '0';
   if (n >= 3) for (let i = 1; i <= n - 2; i++) for (let j = i + 1; j <= n - 1; j++) {
@@ -740,19 +744,19 @@ function findEqs(s) {
     const A = +a, B = +b, C = +c;
     const L = (op, bonus) => out.push({ parts: [a, op, b, '=', c], bonus });
     const R = (op, bonus) => out.push({ parts: [a, '=', b, op, c], bonus });
-    // A op B = C   (no adding 0, subtracting 0, multiplying by 0, or dividing 0)
-    if (A !== 0 && B !== 0 && A + B === C) L('+', false);
-    if (B !== 0 && A - B === C) L('−', false);
+    // A op B = C   (no multiplying by 0 or dividing 0; adding or subtracting 0 is fine)
+    if (A + B === C && (!genRules || (A !== 0 && B !== 0))) L('+', false);
+    if (A - B === C && (!genRules || B !== 0)) L('−', false);
     if (A !== 0 && B !== 0 && A * B === C) L('×', true);
     if (A !== 0 && B !== 0 && A === B * C) L('÷', true);
     // A = B op C
-    if (B !== 0 && C !== 0 && A === B + C) R('+', false);
-    if (C !== 0 && A === B - C) R('−', false);
+    if (A === B + C && (!genRules || (B !== 0 && C !== 0))) R('+', false);
+    if (A === B - C && (!genRules || C !== 0)) R('−', false);
     if (B !== 0 && C !== 0 && A === B * C) R('×', true);
     if (B !== 0 && C !== 0 && B === A * C) R('÷', true);
   }
   if (eqCache.size > 200000) eqCache.clear();
-  eqCache.set(s, out);
+  eqCache.set(key, out);
   return out;
 }
 const bestEq = eqs => eqs.find(e => e.bonus) || eqs[0];
@@ -888,7 +892,7 @@ async function search(board, rack, o) {
     const P = perms[L] || (perms[L] = uniquePerms(rack, L));
     for (const perm of P) {
       const pl = seg.map((k, i) => ({ k, d: rack[perm[i]], ri: perm[i] }));
-      const res = evaluate(board, pl, true, empty);
+      genRules = !!o.genRules; const res = evaluate(board, pl, true, empty); genRules = false;
       if (res.ok) { moves.push({ pl, total: res.total }); if (o.foundLimit && moves.length >= o.foundLimit) break outer; }
       if ((++n & 255) === 0) {
         if (o.evalLimit && n >= o.evalLimit) break outer;
@@ -916,7 +920,7 @@ async function makePuzzle(seed, holeCount) {
   const bag = fullBag(rng), board = Array(N * N).fill(null), placed = [];
   let rack = bag.splice(0, RACK);
   for (let move = 0; move < 14 && placed.length < holeCount + 12; move++) {
-    const moves = await search(board, rack, { maxLen: move === 0 ? 5 : 4, evalLimit: 30000, foundLimit: 60, rng });
+    const moves = await search(board, rack, { maxLen: move === 0 ? 5 : 4, evalLimit: 30000, foundLimit: 60, rng, genRules: true });
     if (!moves.length) { bag.push(...rack); shuffle(bag, rng); rack = bag.splice(0, RACK); continue; }
     moves.sort((a, b) => b.pl.length - a.pl.length || b.total - a.total);
     const m = moves[rng() * Math.ceil(moves.length / 3) | 0];
@@ -1787,7 +1791,7 @@ $('bHint').addEventListener('click', async () => {
     const left = HINT_DISCOUNTED - p.hints;
     ui.pending = best.pl; ui.msg = `Here’s a ${best.total}-point move. The hint cost ${cost} points.${rate < 1 ? (left > 0 ? ` ${left} discounted hint${left === 1 ? '' : 's'} left.` : ' Hints cost 100% from now on.') : ''} Press Play to use it, or Recall to try your own.`; ui.err = false;
   }
-  else { ui.msg = 'No play found with these tiles. Try swapping.'; ui.err = true; }
+  else { ui.msg = S.bag.length ? `No play found with these tiles. Try swapping${S.bag.length < me().rack.length ? ` (up to ${S.bag.length} left in the bag)` : ''}.` : 'No play found with these tiles, and the bag is empty, so pass.'; ui.err = true; }
   render();
 });
 $('bNew').addEventListener('click', () => { if (ui.thinking) return; S.modal = 'new'; render(); });
@@ -1897,10 +1901,10 @@ function calc(X, op, Y) {
   return { val: X / Y };
 }
 function tricks(X, op, Y, say) {
-  const ban = op === '+' && (X === 0 || Y === 0) ? 'adding 0' : op === '−' && Y === 0 ? 'subtracting 0'
-    : op === '×' && (X === 0 || Y === 0) ? 'multiplying by 0' : op === '÷' && X === 0 ? 'dividing 0' : null;
+  const ban = op === '×' && (X === 0 || Y === 0) ? 'multiplying by 0' : op === '÷' && X === 0 ? 'dividing 0' : null;
   if (ban) say('bad', `Not allowed: ${ban} doesn’t count.`);
-  const weak = op === '×' && (X === 1 || Y === 1) ? 'multiplying by 1' : op === '÷' && Y === 1 ? 'dividing by 1' : null;
+  const weak = op === '×' && (X === 1 || Y === 1) ? 'multiplying by 1' : op === '÷' && Y === 1 ? 'dividing by 1'
+    : op === '+' && (X === 0 || Y === 0) ? 'adding 0' : op === '−' && Y === 0 ? 'subtracting 0' : null;
   if (weak) say('warn', `Allowed, but ${weak} is a weak play.`);
 }
 function wbDigit(x) { return x.t === 'c' ? S.board[ui.wb.base[x.i]] : me().rack[x.i]; }

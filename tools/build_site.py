@@ -314,7 +314,7 @@ HOW = f"""
       <li>Every equation has exactly one operator and one equals sign. Operators are <span class="num">+ − × ÷</span>.</li>
       <li>The equals sign can come last or first. <span class="num">972</span> reads as <span class="num">9 − 7 = 2</span>, and <span class="num">297</span> reads as <span class="num">2 = 9 − 7</span>.</li>
       <li>Lines are read left to right and top to bottom.</li>
-      <li>Adding 0, subtracting 0, multiplying by 0 and dividing 0 don’t count. Results of 0 are fine: <span class="num">7 − 7 = 0</span> works.</li>
+      <li>Multiplying by 0 and dividing 0 don’t count. Adding or subtracting 0 is fine: <span class="num">7 + 0 = 7</span> works, and so does <span class="num">7 − 7 = 0</span>.</li>
       <li>Division has to come out even, and results can’t be negative.</li>
       <li>Numbers with more than one digit can’t start with 0.</li>
       <li>Two tiles side by side can never be an equation, so every line of touching tiles needs at least 3.</li>
@@ -416,7 +416,7 @@ SUPPORT = f"""
     <div class="faq">
       <details><summary>Why won’t the game accept my play?</summary><div>
         <p>Every line of touching tiles, across and down, has to read as a true equation, including lines your tiles create sideways. The panel next to the board shows which line failed and why.</p>
-        <p>Common causes: two tiles side by side with nothing else in the line, a number that starts with 0, or a trick with 0 like adding 0 or multiplying by 0. See <a href="../how-to-play/#rules">the equation rules</a>.</p>
+        <p>Common causes: two tiles side by side with nothing else in the line, a number that starts with 0, or multiplying by 0 or dividing 0, which don’t count. See <a href="../how-to-play/#rules">the equation rules</a>.</p>
       </div></details>
       <details><summary>How do I play online with a friend?</summary><div>
         <p>Choose New game, then Online, then Start a game. Send your friend the 6-character code or the link. They choose Join a game and enter the code, or just open the link.</p>
@@ -598,7 +598,7 @@ NOTFOUND = """
   <div class="hero-copy">
     <span class="eyebrow">Page not found</span>
     <h1>404 isn’t an equation<span class="op">.</span></h1>
-    <p class="lede">And this page doesn’t exist. 4 − 0 = 4 would need subtracting 0, which Equacross doesn’t allow. The link may have a typo, or the page may have moved.</p>
+    <p class="lede">4 0 4 is a true line in Equacross (4 = 0 + 4), but this page doesn’t exist. The link may have a typo, or the page may have moved.</p>
     <div class="cta-row"><a class="btn primary" href="/play/">Play Equacross</a><a class="btn" href="/">Go to the home page</a></div>
   </div>
 </div></section>

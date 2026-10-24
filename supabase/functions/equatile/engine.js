@@ -28,14 +28,14 @@ function findEqs(s) {
     const A = +a, B = +b, C = +c;
     const L = (op, bonus) => out.push({ parts: [a, op, b, '=', c], bonus });
     const R = (op, bonus) => out.push({ parts: [a, '=', b, op, c], bonus });
-    // A op B = C   (no adding 0, subtracting 0, multiplying by 0, or dividing 0)
-    if (A !== 0 && B !== 0 && A + B === C) L('+', false);
-    if (B !== 0 && A - B === C) L('−', false);
+    // A op B = C   (no multiplying by 0 or dividing 0; adding or subtracting 0 is fine)
+    if (A + B === C) L('+', false);
+    if (A - B === C) L('−', false);
     if (A !== 0 && B !== 0 && A * B === C) L('×', true);
     if (A !== 0 && B !== 0 && A === B * C) L('÷', true);
     // A = B op C
-    if (B !== 0 && C !== 0 && A === B + C) R('+', false);
-    if (C !== 0 && A === B - C) R('−', false);
+    if (A === B + C) R('+', false);
+    if (A === B - C) R('−', false);
     if (B !== 0 && C !== 0 && A === B * C) R('×', true);
     if (B !== 0 && C !== 0 && B === A * C) R('÷', true);
   }
